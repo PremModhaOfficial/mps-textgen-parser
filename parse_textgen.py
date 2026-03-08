@@ -119,48 +119,51 @@ def flatten(segments):
 
 # ── XML node emitters ─────────────────────────────────────────
 
-def emit_const(value, ids):
+def emit_const_part(value, ids):
     v = xml_escape(value, {'"': '&quot;'})
     return (
-        f'        <node concept="lc7rE" id="{ids.next("a")}" role="3cqZAp">\n'
         f'          <node concept="la8eA" id="{ids.next("c")}" role="lcghm">\n'
         f'            <property role="lacIc" value="{v}" />\n'
-        f'          </node>\n'
-        f'        </node>'
+        f'          </node>'
     )
 
-def emit_expr(expr, ids):
+def emit_expr_part(expr, ids):
     v = xml_escape(f'\u25b6{expr}\u25c0', {'"': '&quot;'})
     return (
-        f'        <node concept="lc7rE" id="{ids.next("a")}" role="3cqZAp">\n'
         f'          <node concept="la8eA" id="{ids.next("x")}" role="lcghm">\n'
         f'            <property role="lacIc" value="{v}" />\n'
-        f'          </node>\n'
-        f'        </node>'
+        f'          </node>'
     )
 
-def emit_newline(ids):
-    return (
-        f'        <node concept="lc7rE" id="{ids.next("a")}" role="3cqZAp">\n'
-        f'          <node concept="l8MVK" id="{ids.next("nl")}" role="lcghm" />\n'
-        f'        </node>'
-    )
+def emit_newline_part(ids):
+    return f'          <node concept="l8MVK" id="{ids.next("nl")}" role="lcghm" />'
+
 
 def emit_blank(ids):
     return f'        <node concept="3clFbH" id="{ids.next("s")}" role="3cqZAp" />'
 
 
 def parts_to_xml(parts, ids):
-    nodes = []
+    # Group all parts of a single append statement into one AppendOperation (lc7rE)
+    part_nodes = []
     for kind, val in parts:
         if kind == 'text':
             if val:
-                nodes.append(emit_const(val, ids))
+                part_nodes.append(emit_const_part(val, ids))
         elif kind == 'expr':
-            nodes.append(emit_expr(val, ids))
+            part_nodes.append(emit_expr_part(val, ids))
         elif kind == 'newline':
-            nodes.append(emit_newline(ids))
-    return nodes
+            part_nodes.append(emit_newline_part(ids))
+
+    if not part_nodes:
+        return []
+
+    part_xml = '\n'.join(part_nodes)
+    return [
+        f'        <node concept="lc7rE" id="{ids.next("a")}" role="3cqZAp">\n'
+        f'{part_xml}\n'
+        f'        </node>'
+    ]
 
 
 # ── Line classifier ──────────────────────────────────────────
