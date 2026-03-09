@@ -5,10 +5,10 @@ Converts TextGen pseudo-code (the `append {...} ${expr} {...} ;` format used in 
 ## What It Does
 
 - **Constants** (`{literal text}`) become `ConstantStringAppendPart` nodes — fully automated
-- **Expressions** (`${schema.structName()}`) become `ConstantStringAppendPart` with `▶expr◀` markers — you swap them manually in MPS
+- **Expressions** (`${schema.structName()}`) become `ConstantStringAppendPart` with `{???-expr}` markers — you swap them manually in MPS
 - **Newlines** (`\n`) become `NewLineAppendPart` nodes — fully automated
 - **Tabs** (`\t`) are preserved as literal tabs in constants
-- **Control flow** (`foreach`, `if`, `for`, variable declarations) become XML comments as a guide for manual wrapping in MPS
+- **Control flow** (`foreach`, `if`, `for`, variable declarations) become explicit text strings formatted like `{???-foreach ... {}` for manual wrapping in MPS
 
 ## Installation
 
@@ -57,7 +57,7 @@ Reload the project. All constants appear in the TextGen editor.
 
 ### Step 5: Fix manually in MPS
 
-1. Search for `▶` — each is an expression placeholder. Replace the ConstantStringAppendPart with a real NodeAppendPart expression.
+1. Search for `{???-` — each is an expression or control flow placeholder. Replace the ConstantStringAppendPart with a real NodeAppendPart expression or actual control flow operation.
 2. Use the generated `_guide.md` file as a checklist for expressions and control flow.
 3. Wrap sections in `foreach`/`if` blocks using MPS intentions (select nodes → wrap).
 
@@ -93,21 +93,21 @@ append ${f.name} ;                                → expr only
 | `\n` | Separate `NewLineAppendPart` node |
 | `\t` | Literal tab character in constant |
 
-### Control flow (becomes XML comments)
+### Control flow (becomes formatted text strings)
 
 ```
-foreach schema in model.schemas {     → <!-- ═══ FOREACH: ... ═══ -->
-if (!(schema.hasReferences())) {      → <!-- ─── IF: ... ─── -->
-for (int i = 1; i <= idx; i++) {      → <!-- ═══ FOR: ... ═══ -->
-}                                     → <!-- END FOREACH/IF/FOR -->
-string sn = schema.structName();      → <!-- VAR: ... -->
-idx = idx + 1;                        → <!-- ASSIGN: ... -->
+foreach schema in model.schemas {     → {???-foreach schema in model.schemas {}
+if (!(schema.hasReferences())) {      → {???-if (!(schema.hasReferences())) {}
+for (int i = 1; i <= idx; i++) {      → {???-for (int i = 1; i <= idx; i++) {}
+}                                     → {???-}}
+string sn = schema.structName();      → {???-string sn = schema.structName();}
+idx = idx + 1;                        → {???-idx = idx + 1;}
 ```
 
 ### Inline if + append
 
 ```
-if (idx > 0) { append {, } ; }       → <!-- IF: ... --> constant "," <!-- END IF -->
+if (idx > 0) { append {, } ; }       → {???-if (idx > 0) {}} constant "," {???-}}
 ```
 
 ## Output Format
@@ -118,14 +118,14 @@ Valid MPS Persistence v9 XML with:
 - Full registry section (baseLanguage + textGen concepts)
 - `ConceptTextGenDeclaration` with filename function and body
 - Every constant as `ConstantStringAppendPart`
-- Every expression as `ConstantStringAppendPart` with `▶expr◀` markers
+- Every expression as `ConstantStringAppendPart` with `{???-expr}` markers
 - Every `\n` as `NewLineAppendPart`
-- Control flow as XML comments
+- Control flow as `ConstantStringAppendPart` with `{???-logic}` markers
 
 ### 2. `_guide.md` file (fixup checklist)
 
 Generated alongside the `.mps` file. Contains:
-- **Expressions table** — every `▶expr◀` placeholder with type classification:
+- **Expressions table** — every `{???-expr}` placeholder with type classification:
   - Type A: property access (`schema.name`)
   - Type B: method call (`schema.structName()`)
   - Type C: chained access (`fr.target_schema.structName()`)
@@ -151,15 +151,15 @@ This way you never touch the real project's file directly.
 - **No structure refs** — the concept-id must be provided manually (from the structure model)
 - **Single concept** — generates one `ConceptTextGenDeclaration` per run
 - **Filename hardcoded** — the filename function returns `"generated"` — change it in MPS after import
-- **Control flow is comments only** — you manually wrap nodes in foreach/if/for in MPS's editor
+- **Control flow is string literals only** — you manually replace them and wrap nodes in foreach/if/for in MPS's editor
 
 ## Expression Types Reference
 
-When fixing `▶expr◀` placeholders in MPS:
+When fixing `{???-expr}` placeholders in MPS:
 
 | Type | Example | MPS Action |
 |---|---|---|
-| A: property | `▶schema.name◀` | NodeAppendPart → `schema.name` |
-| B: method | `▶schema.structName()◀` | NodeAppendPart → `schema.structName()` |
-| C: chained | `▶fr.target_schema.structName()◀` | NodeAppendPart → `fr.target_schema.structName()` |
-| D: local var | `▶sn◀` | NodeAppendPart → `sn` |
+| A: property | `{???-schema.name}` | NodeAppendPart → `schema.name` |
+| B: method | `{???-schema.structName()}` | NodeAppendPart → `schema.structName()` |
+| C: chained | `{???-fr.target_schema.structName()}` | NodeAppendPart → `fr.target_schema.structName()` |
+| D: local var | `{???-sn}` | NodeAppendPart → `sn` |
