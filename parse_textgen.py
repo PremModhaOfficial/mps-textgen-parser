@@ -18,6 +18,7 @@ Usage:
 import re
 import sys
 import argparse
+import os
 from xml.sax.saxutils import escape as xml_escape
 
 
@@ -128,7 +129,7 @@ def emit_const_part(value, ids):
     )
 
 def emit_expr_part(expr, ids):
-    v = xml_escape(f'\u25b6{expr}\u25c0', {'"': '&quot;'})
+    v = xml_escape(f'{{???-{expr}}}', {'"': '&quot;'})
     return (
         f'          <node concept="la8eA" id="{ids.next("x")}" role="lcghm">\n'
         f'            <property role="lacIc" value="{v}" />\n'
@@ -141,6 +142,16 @@ def emit_newline_part(ids):
 
 def emit_blank(ids):
     return f'        <node concept="3clFbH" id="{ids.next("s")}" role="3cqZAp" />'
+
+def emit_control_append(text, ids):
+    v = xml_escape(text, {'"': '&quot;'})
+    return (
+        f'        <node concept="lc7rE" id="{ids.next("a")}" role="3cqZAp">\n'
+        f'          <node concept="la8eA" id="{ids.next("c")}" role="lcghm">\n'
+        f'            <property role="lacIc" value="{v}" />\n'
+        f'          </node>\n'
+        f'        </node>'
+    )
 
 
 def parts_to_xml(parts, ids):
@@ -243,6 +254,47 @@ def parse_append(line):
     return flatten(segs), segs
 
 
+# ── Project ID extraction ────────────────────────────────────
+
+def extract_ids_from_project(project_dir, concept_name):
+    """Scan the project directory for structure and textGen models to extract UUIDs and Concept ID."""
+    models_dir = os.path.join(project_dir, 'models')
+    if not os.path.isdir(models_dir):
+        print(f"Error: Could not find 'models' directory in {project_dir}", file=sys.stderr)
+        sys.exit(1)
+
+    structure_uuid = None
+    model_uuid = None
+    concept_id = None
+
+    # Find structure and textGen models
+    for fname in os.listdir(models_dir):
+        if fname.endswith('.structure.mps'):
+            with open(os.path.join(models_dir, fname)) as f:
+                content = f.read()
+                # Extract model ref (UUID)
+                m = re.search(r'<model ref="([^"]+)">', content)
+                if m:
+                    structure_uuid = m.group(1)
+
+                # Extract concept ID
+                # Look for a ConceptDeclaration with the given name
+                m = re.search(r'<node concept="1TIwiD" id="([^"]+)".*?name="{}"'.format(re.escape(concept_name)), content)
+                if not m: # fallback if attributes are ordered differently
+                    m = re.search(r'<node.*?id="([^"]+)".*?name="{}"'.format(re.escape(concept_name)), content)
+                if m:
+                    concept_id = m.group(1)
+
+        elif fname.endswith('.textGen.mps'):
+            with open(os.path.join(models_dir, fname)) as f:
+                content = f.read()
+                m = re.search(r'<model ref="([^"]+)">', content)
+                if m:
+                    model_uuid = m.group(1)
+
+    return structure_uuid, model_uuid, concept_id
+
+
 # ── Main ──────────────────────────────────────────────────────
 
 def main():
@@ -254,8 +306,15 @@ def main():
     ap.add_argument('--structure-name', default='YourLang.structure')
     ap.add_argument('--concept-name', default='Code')
     ap.add_argument('--concept-id', default='TODO-CONCEPT-ID')
+    ap.add_argument('--project-dir', help='Path to the language module directory containing the "models" folder')
     ap.add_argument('-o', '--output', default='output.textGen.mps')
     args = ap.parse_args()
+
+    if args.project_dir:
+        s_uuid, m_uuid, c_id = extract_ids_from_project(args.project_dir, args.concept_name)
+        if s_uuid: args.structure_uuid = s_uuid
+        if m_uuid: args.model_uuid = m_uuid
+        if c_id: args.concept_id = c_id
 
     with open(args.input) as f:
         lines = f.readlines()
@@ -310,7 +369,7 @@ def main():
         # ── Inline if + append ──
         elif kind == 'inline_if_append':
             cond, inner_append = payload
-            body.append(f'        <!-- IF: {xml_comment_safe(xml_escape(cond))} -->')
+            body.append(emit_control_append(f'{{???-{cond} {{}}', ids))
             ctrls.append(('IF (inline)', cond, ln))
 
             parts, segs = parse_append(inner_append)
@@ -320,33 +379,33 @@ def main():
                     exprs.append((expr_n, pv, ln))
             body.extend(parts_to_xml(parts, ids))
 
-            body.append(f'        <!-- END IF -->')
+            body.append(emit_control_append('{???-}}', ids))
 
         # ── Inline if + control (assignment etc.) ──
         elif kind == 'inline_if_ctrl':
             cond, inner = payload
-            body.append(f'        <!-- IF: {xml_comment_safe(xml_escape(cond))} {{ {xml_comment_safe(xml_escape(inner))} }} -->')
+            body.append(emit_control_append(f'{{???-{cond} {{ {inner} }} }}', ids))
             ctrls.append(('IF+STMT (inline)', f'{cond} {{ {inner} }}', ln))
 
         # ── Foreach ──
         elif kind == 'foreach':
             # strip trailing {
             txt = stripped.rstrip(' {').rstrip('{')
-            body.append(f'        <!-- ═══ FOREACH: {xml_comment_safe(xml_escape(txt))} ═══ -->')
+            body.append(emit_control_append(f'{{???-{txt} {{}}', ids))
             ctrls.append(('FOREACH', txt, ln))
             scope.append('FOREACH')
 
         # ── If ──
         elif kind == 'if':
             txt = stripped.rstrip(' {').rstrip('{')
-            body.append(f'        <!-- ─── IF: {xml_comment_safe(xml_escape(txt))} ─── -->')
+            body.append(emit_control_append(f'{{???-{txt} {{}}', ids))
             ctrls.append(('IF', txt, ln))
             scope.append('IF')
 
         # ── Else if ──
         elif kind == 'else_if':
             txt = stripped.rstrip(' {').rstrip('{')
-            body.append(f'        <!-- ─── ELSE IF: {xml_comment_safe(xml_escape(txt))} ─── -->')
+            body.append(emit_control_append(f'{{???-{txt} {{}}', ids))
             ctrls.append(('ELSE IF', txt, ln))
             # pop IF, push ELSE_IF (same level)
             if scope and scope[-1] in ('IF', 'ELSE_IF'):
@@ -357,23 +416,23 @@ def main():
         # ── For loop ──
         elif kind == 'for':
             txt = stripped.rstrip(' {').rstrip('{')
-            body.append(f'        <!-- ═══ FOR: {xml_comment_safe(xml_escape(txt))} ═══ -->')
+            body.append(emit_control_append(f'{{???-{txt} {{}}', ids))
             ctrls.append(('FOR', txt, ln))
             scope.append('FOR')
 
         # ── End block ──
         elif kind == 'end':
             tag = scope.pop() if scope else '?'
-            body.append(f'        <!-- END {tag} -->')
+            body.append(emit_control_append('{???-}}', ids))
 
         # ── Variable declaration ──
         elif kind == 'var':
-            body.append(f'        <!-- VAR: {xml_comment_safe(xml_escape(stripped))} -->')
+            body.append(emit_control_append(f'{{???-{stripped}}}', ids))
             ctrls.append(('VAR', stripped, ln))
 
         # ── Assignment ──
         elif kind == 'assign':
-            body.append(f'        <!-- ASSIGN: {xml_comment_safe(xml_escape(stripped))} -->')
+            body.append(emit_control_append(f'{{???-{stripped}}}', ids))
             ctrls.append(('ASSIGN', stripped, ln))
 
         # ── Comment ──
@@ -476,7 +535,7 @@ def main():
             f.write('\n')
 
         f.write(f'## Expressions ({expr_n} total)\n\n')
-        f.write(f'Search `▶` in MPS. Each is a ConstantStringAppendPart — replace content with actual expression.\n\n')
+        f.write(f'Search `{{???-` in MPS. Each is a ConstantStringAppendPart — replace content with actual expression.\n\n')
         f.write(f'| # | Expression | Line | Type |\n')
         f.write(f'|---|---|---|---|\n')
         for n, expr, ln in exprs:
@@ -497,8 +556,8 @@ def main():
 
     # ── Summary ───────────────────────────────────────────────
     print(f'✓ {args.output}')
-    print(f'  {expr_n} expression placeholders (▶...◀)')
-    print(f'  {len(ctrls)} control flow comments')
+    print(f'  {expr_n} expression placeholders ({{???-...}})')
+    print(f'  {len(ctrls)} control flow items')
     print(f'  {ids.n} total XML nodes')
     print(f'✓ {guide}')
 
