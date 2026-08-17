@@ -1,0 +1,8 @@
+*.sh
+*.md
+Dockerfile
+docker-compose.yml
+.dockerignore
+.idea
+.omc
+.last_project

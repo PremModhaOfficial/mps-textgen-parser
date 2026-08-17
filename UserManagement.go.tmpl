@@ -1,0 +1,740 @@
+package main
+
+import (
+	"database/sql"
+	_ "embed"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"strconv"
+	"time"
+
+	_ "github.com/lib/pq"
+	httpSwagger "github.com/swaggo/http-swagger"
+	_ "_module_/docs"
+)
+
+//go:embed user_management_init.sql
+var _migrationSQL_ string
+
+// @title         _UserManagement_ API
+// @version       1.0
+// @description   CRUD service for _users_, _roles_, and _user_roles_ assignments.
+// @host          localhost:_port_
+// @BasePath      /
+// @schemes       http
+// @produce       json
+// @consumes      json
+
+// ============================================================
+// Models
+// ============================================================
+
+// _User_ represents a user account in the system.
+// @Description _User_ account entity.
+type _User_ struct {
+	_ID_        int64     `json:"_id_" db:"_id_" example:"1"`
+	_Username_  string    `json:"_username_" db:"_username_" example:"jdoe"`
+	_Email_     string    `json:"_email_" db:"_email_" example:"jdoe@example.com"`
+	_Password_  string    `json:"_password_" db:"_password_" example:"[REDACTED]"`
+	_FirstName_ string    `json:"_first_name_" db:"_first_name_" example:"John"`
+	_LastName_  string    `json:"_last_name_" db:"_last_name_" example:"Doe"`
+	_IsActive_  bool      `json:"_is_active_" db:"_is_active_" example:"true"`
+	_CreatedAt_ time.Time `json:"_created_at_" db:"_created_at_"`
+	_UpdatedAt_ time.Time `json:"_updated_at_" db:"_updated_at_"`
+}
+
+func (u _User_) MarshalJSON() ([]byte, error) {
+	type Alias _User_
+	return json.Marshal(&struct {
+		Alias
+		_Password_ string `json:"_password_"`
+	}{
+		Alias:      (Alias)(u),
+		_Password_: "[REDACTED]",
+	})
+}
+
+// _UserCreate_ is the request body for creating or updating a _user_.
+// @Description Request payload for _user_ creation/update.
+type _UserCreate_ struct {
+	_Username_  string `json:"_username_" example:"jdoe" binding:"required"`
+	_Email_     string `json:"_email_" example:"jdoe@example.com" binding:"required"`
+	_Password_  string `json:"_password_" example:"s3cret!" binding:"required"`
+	_FirstName_ string `json:"_first_name_" example:"John"`
+	_LastName_  string `json:"_last_name_" example:"Doe"`
+	_IsActive_  bool   `json:"_is_active_" example:"true"`
+}
+
+// _Role_ represents a role entity.
+// @Description _Role_ definition in the system.
+type _Role_ struct {
+	_ID_          int64     `json:"_id_" db:"_id_" example:"1"`
+	_Name_        string    `json:"_name_" db:"_name_" example:"admin"`
+	_Description_ string    `json:"_description_" db:"_description_" example:"Administrator role"`
+	_CreatedAt_   time.Time `json:"_created_at_" db:"_created_at_"`
+}
+
+// _RoleCreate_ is the request body for creating or updating a _role_.
+// @Description Request payload for _role_ creation/update.
+type _RoleCreate_ struct {
+	_Name_        string `json:"_name_" example:"admin" binding:"required"`
+	_Description_ string `json:"_description_" example:"Administrator role"`
+}
+
+// _UserRole_ represents a user-role assignment.
+// @Description Assignment linking a _user_ to a _role_.
+type _UserRole_ struct {
+	_UserID_     int64     `json:"_user_id_" db:"_user_id_" example:"1"`
+	_RoleID_     int64     `json:"_role_id_" db:"_role_id_" example:"2"`
+	_AssignedAt_ time.Time `json:"_assigned_at_" db:"_assigned_at_"`
+}
+
+// _AssignRoleBody_ is the request body for assigning a _role_ to a _user_.
+// @Description Request payload for _role_ assignment.
+type _AssignRoleBody_ struct {
+	_RoleID_ int64 `json:"_role_id_" example:"2" binding:"required"`
+}
+
+// ============================================================
+// Repositories
+// ============================================================
+
+type _UserRepo_ struct{ db *sql.DB }
+
+func (r *_UserRepo_) Create(u *_User_) error {
+	return r.db.QueryRow(
+		`INSERT INTO _users_ (_username_, _email_, _password_, _first_name_, _last_name_, _is_active_)
+		 VALUES ($1, $2, $3, $4, $5, $6)
+		 RETURNING _id_, _created_at_, _updated_at_`,
+		u._Username_, u._Email_, u._Password_, u._FirstName_, u._LastName_, u._IsActive_,
+	).Scan(&u._ID_, &u._CreatedAt_, &u._UpdatedAt_)
+}
+
+func (r *_UserRepo_) GetByID(id int64) (*_User_, error) {
+	u := &_User_{}
+	err := r.db.QueryRow(
+		`SELECT _id_, _username_, _email_, _password_, _first_name_, _last_name_, _is_active_, _created_at_, _updated_at_
+		 FROM _users_ WHERE _id_ = $1`, id,
+	).Scan(&u._ID_, &u._Username_, &u._Email_, &u._Password_, &u._FirstName_, &u._LastName_, &u._IsActive_, &u._CreatedAt_, &u._UpdatedAt_)
+	return u, err
+}
+
+func (r *_UserRepo_) List() ([]_User_, error) {
+	rows, err := r.db.Query(
+		`SELECT _id_, _username_, _email_, _password_, _first_name_, _last_name_, _is_active_, _created_at_, _updated_at_
+		 FROM _users_ ORDER BY _id_`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var _users_ []_User_
+	for rows.Next() {
+		var u _User_
+		if err := rows.Scan(&u._ID_, &u._Username_, &u._Email_, &u._Password_, &u._FirstName_, &u._LastName_, &u._IsActive_, &u._CreatedAt_, &u._UpdatedAt_); err != nil {
+			return nil, err
+		}
+		_users_ = append(_users_, u)
+	}
+	return _users_, rows.Err()
+}
+
+func (r *_UserRepo_) Update(u *_User_) error {
+	return r.db.QueryRow(
+		`UPDATE _users_ SET _username_ = $1, _email_ = $2, _password_ = $3, _first_name_ = $4, _last_name_ = $5, _is_active_ = $6, _updated_at_ = NOW()
+		 WHERE _id_ = $7
+		 RETURNING _updated_at_`,
+		u._Username_, u._Email_, u._Password_, u._FirstName_, u._LastName_, u._IsActive_, u._ID_,
+	).Scan(&u._UpdatedAt_)
+}
+
+func (r *_UserRepo_) Delete(id int64) error {
+	_, err := r.db.Exec(`DELETE FROM _users_ WHERE _id_ = $1`, id)
+	return err
+}
+
+// ----
+
+type _RoleRepo_ struct{ db *sql.DB }
+
+func (r *_RoleRepo_) Create(_role_ *_Role_) error {
+	return r.db.QueryRow(
+		`INSERT INTO _roles_ (_name_, _description_) VALUES ($1, $2) RETURNING _id_, _created_at_`,
+		_role_._Name_, _role_._Description_,
+	).Scan(&_role_._ID_, &_role_._CreatedAt_)
+}
+
+func (r *_RoleRepo_) GetByID(id int64) (*_Role_, error) {
+	_role_ := &_Role_{}
+	err := r.db.QueryRow(
+		`SELECT _id_, _name_, _description_, _created_at_ FROM _roles_ WHERE _id_ = $1`, id,
+	).Scan(&_role_._ID_, &_role_._Name_, &_role_._Description_, &_role_._CreatedAt_)
+	return _role_, err
+}
+
+func (r *_RoleRepo_) List() ([]_Role_, error) {
+	rows, err := r.db.Query(`SELECT _id_, _name_, _description_, _created_at_ FROM _roles_ ORDER BY _id_`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var _roles_ []_Role_
+	for rows.Next() {
+		var _role_ _Role_
+		if err := rows.Scan(&_role_._ID_, &_role_._Name_, &_role_._Description_, &_role_._CreatedAt_); err != nil {
+			return nil, err
+		}
+		_roles_ = append(_roles_, _role_)
+	}
+	return _roles_, rows.Err()
+}
+
+func (r *_RoleRepo_) Update(_role_ *_Role_) error {
+	_, err := r.db.Exec(
+		`UPDATE _roles_ SET _name_ = $1, _description_ = $2 WHERE _id_ = $3`,
+		_role_._Name_, _role_._Description_, _role_._ID_,
+	)
+	return err
+}
+
+func (r *_RoleRepo_) Delete(id int64) error {
+	_, err := r.db.Exec(`DELETE FROM _roles_ WHERE _id_ = $1`, id)
+	return err
+}
+
+// ----
+
+type _UserRoleRepo_ struct{ db *sql.DB }
+
+func (r *_UserRoleRepo_) Assign(_userID_, _roleID_ int64) (*_UserRole_, error) {
+	_ur_ := &_UserRole_{}
+	err := r.db.QueryRow(
+		`INSERT INTO _user_roles_ (_user_id_, _role_id_) VALUES ($1, $2)
+		 ON CONFLICT (_user_id_, _role_id_) DO NOTHING
+		 RETURNING _user_id_, _role_id_, _assigned_at_`,
+		_userID_, _roleID_,
+	).Scan(&_ur_._UserID_, &_ur_._RoleID_, &_ur_._AssignedAt_)
+	return _ur_, err
+}
+
+func (r *_UserRoleRepo_) Remove(_userID_, _roleID_ int64) error {
+	_, err := r.db.Exec(`DELETE FROM _user_roles_ WHERE _user_id_ = $1 AND _role_id_ = $2`, _userID_, _roleID_)
+	return err
+}
+
+func (r *_UserRoleRepo_) GetRolesByUser(_userID_ int64) ([]_Role_, error) {
+	rows, err := r.db.Query(
+		`SELECT r._id_, r._name_, r._description_, r._created_at_
+		 FROM _roles_ r
+		 INNER JOIN _user_roles_ ur ON ur._role_id_ = r._id_
+		 WHERE ur._user_id_ = $1
+		 ORDER BY r._id_`, _userID_,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var _roles_ []_Role_
+	for rows.Next() {
+		var _role_ _Role_
+		if err := rows.Scan(&_role_._ID_, &_role_._Name_, &_role_._Description_, &_role_._CreatedAt_); err != nil {
+			return nil, err
+		}
+		_roles_ = append(_roles_, _role_)
+	}
+	return _roles_, rows.Err()
+}
+
+func (r *_UserRoleRepo_) GetUsersByRole(_roleID_ int64) ([]_User_, error) {
+	rows, err := r.db.Query(
+		`SELECT u._id_, u._username_, u._email_, u._password_, u._first_name_, u._last_name_, u._is_active_, u._created_at_, u._updated_at_
+		 FROM _users_ u
+		 INNER JOIN _user_roles_ ur ON ur._user_id_ = u._id_
+		 WHERE ur._role_id_ = $1
+		 ORDER BY u._id_`, _roleID_,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var _users_ []_User_
+	for rows.Next() {
+		var u _User_
+		if err := rows.Scan(&u._ID_, &u._Username_, &u._Email_, &u._Password_, &u._FirstName_, &u._LastName_, &u._IsActive_, &u._CreatedAt_, &u._UpdatedAt_); err != nil {
+			return nil, err
+		}
+		_users_ = append(_users_, u)
+	}
+	return _users_, rows.Err()
+}
+
+// ============================================================
+// HTTP Handlers — _Users_
+// ============================================================
+
+// _handleCreateUser_ creates a new _user_.
+// @Summary      Create _user_
+// @Description  Create a new _user_ account.
+// @Tags         _Users_
+// @Accept       json
+// @Produce      json
+// @Param        _user_  body      _UserCreate_  true  "_User_ payload"
+// @Success      201     {object}  _User_
+// @Failure      400     {string}  string  "Invalid request body"
+// @Failure      500     {string}  string  "Server error"
+// @Router       /_users_ [post]
+func _handleCreateUser_(_repo_ *_UserRepo_) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var u _User_
+		if err := json.NewDecoder(r.Body).Decode(&u); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := _repo_.Create(&u); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(u)
+	}
+}
+
+// _handleGetUser_ retrieves a _user_ by ID.
+// @Summary      Get _user_
+// @Description  Get a single _user_ by ID.
+// @Tags         _Users_
+// @Produce      json
+// @Param        id   path      int     true  "_User_ ID"
+// @Success      200  {object}  _User_
+// @Failure      400  {string}  string  "Invalid ID"
+// @Failure      404  {string}  string  "_User_ not found"
+// @Router       /_users_/{id} [get]
+func _handleGetUser_(_repo_ *_UserRepo_) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		idStr := r.PathValue("id")
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			http.Error(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+		u, err := _repo_.GetByID(id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(u)
+	}
+}
+
+// _handleListUsers_ lists all _users_.
+// @Summary      List _users_
+// @Description  Get all _users_ in the system.
+// @Tags         _Users_
+// @Produce      json
+// @Success      200  {array}   _User_
+// @Failure      500  {string}  string  "Server error"
+// @Router       /_users_ [get]
+func _handleListUsers_(_repo_ *_UserRepo_) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		_users_, err := _repo_.List()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(_users_)
+	}
+}
+
+// _handleUpdateUser_ updates an existing _user_.
+// @Summary      Update _user_
+// @Description  Update an existing _user_ by ID.
+// @Tags         _Users_
+// @Accept       json
+// @Produce      json
+// @Param        id      path      int           true  "_User_ ID"
+// @Param        _user_  body      _UserCreate_  true  "Updated _user_ payload"
+// @Success      200     {object}  _User_
+// @Failure      400     {string}  string  "Invalid request"
+// @Failure      500     {string}  string  "Server error"
+// @Router       /_users_/{id} [put]
+func _handleUpdateUser_(_repo_ *_UserRepo_) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		idStr := r.PathValue("id")
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			http.Error(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+		var u _User_
+		if err := json.NewDecoder(r.Body).Decode(&u); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		u._ID_ = id
+		if err := _repo_.Update(&u); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(u)
+	}
+}
+
+// _handleDeleteUser_ deletes a _user_.
+// @Summary      Delete _user_
+// @Description  Delete a _user_ by ID.
+// @Tags         _Users_
+// @Param        id   path      int     true  "_User_ ID"
+// @Success      204  {string}  string  "No content"
+// @Failure      400  {string}  string  "Invalid ID"
+// @Failure      500  {string}  string  "Server error"
+// @Router       /_users_/{id} [delete]
+func _handleDeleteUser_(_repo_ *_UserRepo_) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		idStr := r.PathValue("id")
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			http.Error(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+		if err := _repo_.Delete(id); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// ============================================================
+// HTTP Handlers — _Roles_
+// ============================================================
+
+// _handleCreateRole_ creates a new _role_.
+// @Summary      Create _role_
+// @Description  Create a new _role_.
+// @Tags         _Roles_
+// @Accept       json
+// @Produce      json
+// @Param        _role_  body      _RoleCreate_  true  "_Role_ payload"
+// @Success      201     {object}  _Role_
+// @Failure      400     {string}  string  "Invalid request body"
+// @Failure      500     {string}  string  "Server error"
+// @Router       /_roles_ [post]
+func _handleCreateRole_(_repo_ *_RoleRepo_) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var _role_ _Role_
+		if err := json.NewDecoder(r.Body).Decode(&_role_); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := _repo_.Create(&_role_); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(_role_)
+	}
+}
+
+// _handleGetRole_ retrieves a _role_ by ID.
+// @Summary      Get _role_
+// @Description  Get a single _role_ by ID.
+// @Tags         _Roles_
+// @Produce      json
+// @Param        id   path      int     true  "_Role_ ID"
+// @Success      200  {object}  _Role_
+// @Failure      400  {string}  string  "Invalid ID"
+// @Failure      404  {string}  string  "_Role_ not found"
+// @Router       /_roles_/{id} [get]
+func _handleGetRole_(_repo_ *_RoleRepo_) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		idStr := r.PathValue("id")
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			http.Error(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+		_role_, err := _repo_.GetByID(id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(_role_)
+	}
+}
+
+// _handleListRoles_ lists all _roles_.
+// @Summary      List _roles_
+// @Description  Get all _roles_ in the system.
+// @Tags         _Roles_
+// @Produce      json
+// @Success      200  {array}   _Role_
+// @Failure      500  {string}  string  "Server error"
+// @Router       /_roles_ [get]
+func _handleListRoles_(_repo_ *_RoleRepo_) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		_roles_, err := _repo_.List()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(_roles_)
+	}
+}
+
+// _handleUpdateRole_ updates an existing _role_.
+// @Summary      Update _role_
+// @Description  Update an existing _role_ by ID.
+// @Tags         _Roles_
+// @Accept       json
+// @Produce      json
+// @Param        id      path      int           true  "_Role_ ID"
+// @Param        _role_  body      _RoleCreate_  true  "Updated _role_ payload"
+// @Success      200     {object}  _Role_
+// @Failure      400     {string}  string  "Invalid request"
+// @Failure      500     {string}  string  "Server error"
+// @Router       /_roles_/{id} [put]
+func _handleUpdateRole_(_repo_ *_RoleRepo_) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		idStr := r.PathValue("id")
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			http.Error(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+		var _role_ _Role_
+		if err := json.NewDecoder(r.Body).Decode(&_role_); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		_role_._ID_ = id
+		if err := _repo_.Update(&_role_); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(_role_)
+	}
+}
+
+// _handleDeleteRole_ deletes a _role_.
+// @Summary      Delete _role_
+// @Description  Delete a _role_ by ID.
+// @Tags         _Roles_
+// @Param        id   path      int     true  "_Role_ ID"
+// @Success      204  {string}  string  "No content"
+// @Failure      400  {string}  string  "Invalid ID"
+// @Failure      500  {string}  string  "Server error"
+// @Router       /_roles_/{id} [delete]
+func _handleDeleteRole_(_repo_ *_RoleRepo_) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		idStr := r.PathValue("id")
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			http.Error(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+		if err := _repo_.Delete(id); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// ============================================================
+// HTTP Handlers — _UserRole_ (assignments)
+// ============================================================
+
+// _handleAssignRole_ assigns a _role_ to a _user_.
+// @Summary      Assign _role_ to _user_
+// @Description  Create a _user_-_role_ assignment.
+// @Tags         _UserRoles_
+// @Accept       json
+// @Produce      json
+// @Param        id    path      int                true  "_User_ ID"
+// @Param        body  body      _AssignRoleBody_   true  "_Role_ ID to assign"
+// @Success      201   {object}  _UserRole_
+// @Failure      400   {string}  string  "Invalid request"
+// @Failure      500   {string}  string  "Server error"
+// @Router       /_users_/{id}/_roles_ [post]
+func _handleAssignRole_(_urRepo_ *_UserRoleRepo_) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		_userID_, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+		if err != nil {
+			http.Error(w, "invalid user id", http.StatusBadRequest)
+			return
+		}
+		var body _AssignRoleBody_
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		_ur_, err := _urRepo_.Assign(_userID_, body._RoleID_)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(_ur_)
+	}
+}
+
+// _handleRemoveRole_ removes a _role_ from a _user_.
+// @Summary      Remove _role_ from _user_
+// @Description  Delete a _user_-_role_ assignment.
+// @Tags         _UserRoles_
+// @Param        id         path      int  true  "_User_ ID"
+// @Param        _role_id_  path      int  true  "_Role_ ID"
+// @Success      204        {string}  string  "No content"
+// @Failure      400        {string}  string  "Invalid ID"
+// @Failure      500        {string}  string  "Server error"
+// @Router       /_users_/{id}/_roles_/{_role_id_} [delete]
+func _handleRemoveRole_(_urRepo_ *_UserRoleRepo_) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		_userID_, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+		if err != nil {
+			http.Error(w, "invalid user id", http.StatusBadRequest)
+			return
+		}
+		_roleID_, err := strconv.ParseInt(r.PathValue("_role_id_"), 10, 64)
+		if err != nil {
+			http.Error(w, "invalid role id", http.StatusBadRequest)
+			return
+		}
+		if err := _urRepo_.Remove(_userID_, _roleID_); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// _handleGetUserRoles_ gets all _roles_ assigned to a _user_.
+// @Summary      Get _user_ _roles_
+// @Description  List all _roles_ assigned to a _user_.
+// @Tags         _UserRoles_
+// @Produce      json
+// @Param        id   path      int  true  "_User_ ID"
+// @Success      200  {array}   _Role_
+// @Failure      400  {string}  string  "Invalid ID"
+// @Failure      500  {string}  string  "Server error"
+// @Router       /_users_/{id}/_roles_ [get]
+func _handleGetUserRoles_(_urRepo_ *_UserRoleRepo_) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		_userID_, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+		if err != nil {
+			http.Error(w, "invalid user id", http.StatusBadRequest)
+			return
+		}
+		_roles_, err := _urRepo_.GetRolesByUser(_userID_)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(_roles_)
+	}
+}
+
+// _handleGetRoleUsers_ gets all _users_ assigned to a _role_.
+// @Summary      Get _role_ _users_
+// @Description  List all _users_ with a given _role_.
+// @Tags         _UserRoles_
+// @Produce      json
+// @Param        id   path      int  true  "_Role_ ID"
+// @Success      200  {array}   _User_
+// @Failure      400  {string}  string  "Invalid ID"
+// @Failure      500  {string}  string  "Server error"
+// @Router       /_roles_/{id}/_users_ [get]
+func _handleGetRoleUsers_(_urRepo_ *_UserRoleRepo_) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		_roleID_, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+		if err != nil {
+			http.Error(w, "invalid role id", http.StatusBadRequest)
+			return
+		}
+		_users_, err := _urRepo_.GetUsersByRole(_roleID_)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(_users_)
+	}
+}
+
+// ============================================================
+// Main
+// ============================================================
+
+func main() {
+	_dbURL_ := os.Getenv("DATABASE_URL")
+	if _dbURL_ == "" {
+		_dbURL_ = "postgres://_db_user_:_db_pass_@localhost:5432/_db_name_?sslmode=disable"
+	}
+
+	db, err := sql.Open("postgres", _dbURL_)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	for i := 0; i < 5; i++ {
+		if err = db.Ping(); err == nil {
+			break
+		}
+		log.Printf("DB not ready, retrying... (%d/5)", i+1)
+		time.Sleep(2 * time.Second)
+	}
+	if err != nil {
+		log.Fatal("DB connection failed:", err)
+	}
+
+	if _, err := db.Exec(_migrationSQL_); err != nil {
+		log.Fatal(err)
+	}
+	log.Println("Migration complete")
+
+	_userRepo_ := &_UserRepo_{db: db}
+	_roleRepo_ := &_RoleRepo_{db: db}
+	_urRepo_ := &_UserRoleRepo_{db: db}
+
+	mux := http.NewServeMux()
+
+	// Swagger UI
+	mux.HandleFunc("GET /swagger/*", httpSwagger.WrapHandler)
+
+	// _Users_
+	mux.HandleFunc("POST /_users_", _handleCreateUser_(_userRepo_))
+	mux.HandleFunc("GET /_users_", _handleListUsers_(_userRepo_))
+	mux.HandleFunc("GET /_users_/{id}", _handleGetUser_(_userRepo_))
+	mux.HandleFunc("PUT /_users_/{id}", _handleUpdateUser_(_userRepo_))
+	mux.HandleFunc("DELETE /_users_/{id}", _handleDeleteUser_(_userRepo_))
+
+	// _Roles_
+	mux.HandleFunc("POST /_roles_", _handleCreateRole_(_roleRepo_))
+	mux.HandleFunc("GET /_roles_", _handleListRoles_(_roleRepo_))
+	mux.HandleFunc("GET /_roles_/{id}", _handleGetRole_(_roleRepo_))
+	mux.HandleFunc("PUT /_roles_/{id}", _handleUpdateRole_(_roleRepo_))
+	mux.HandleFunc("DELETE /_roles_/{id}", _handleDeleteRole_(_roleRepo_))
+
+	// _UserRole_ assignments
+	mux.HandleFunc("POST /_users_/{id}/_roles_", _handleAssignRole_(_urRepo_))
+	mux.HandleFunc("DELETE /_users_/{id}/_roles_/{_role_id_}", _handleRemoveRole_(_urRepo_))
+	mux.HandleFunc("GET /_users_/{id}/_roles_", _handleGetUserRoles_(_urRepo_))
+	mux.HandleFunc("GET /_roles_/{id}/_users_", _handleGetRoleUsers_(_urRepo_))
+
+	fmt.Println("Serving on :_port_")
+	fmt.Println("Swagger UI: http://localhost:_port_/swagger/index.html")
+	log.Fatal(http.ListenAndServe(":_port_", mux))
+}

@@ -1,0 +1,268 @@
+= The User Flow
+
+image::images/entity-user-definition-2.png[MPS Editor: User Entity hooks — pre/post hooks with priority and async flags]
+
+A request enters the system as a NATS message.
+It exits as a NATS reply.
+Everything in between — unmarshaling, pre-hooks, validation, DAL forwarding, post-hooks — happens inside the UserManagement service in a single synchronous chain per handler method.
+
+This section traces that chain from the caller's perspective.
+
+== The Subject Hierarchy
+
+image::images/roles-entity-with-relation.png[MPS Editor: Roles entity with Permission_pivot relation]
+
+The service registers endpoints on a tree of NATS subjects.
+Every subject follows the pattern `motadata.{entity}.{operation}`.
+
+The full set of registered subjects for the three entities and two relations:
+
+[source]
+----
+# Entity operations (15 total)
+motadata.user.create
+motadata.user.get
+motadata.user.update
+motadata.user.delete
+motadata.user.list
+
+motadata.roles.create
+motadata.roles.get
+motadata.roles.update
+motadata.roles.delete
+motadata.roles.list
+
+motadata.permissions.create
+motadata.permissions.get
+motadata.permissions.update
+motadata.permissions.delete
+motadata.permissions.list
+
+# Relation operations (6 total)
+motadata.user.roles.assign
+motadata.user.roles.remove
+motadata.user.roles.list
+
+motadata.roles.permissions.assign
+motadata.roles.permissions.remove
+motadata.roles.permissions.list
+----
+
+Twenty-one registered endpoints.
+Each maps to one handler method in the generated Go code.
+
+The DAL subjects follow the same pattern with `.db.` inserted:
+
+[source]
+----
+motadata.user.create         →  motadata.user.db.create
+motadata.roles.list          →  motadata.roles.db.list
+motadata.user.roles.assign   →  motadata.user.roles.db.assign
+----
+
+The service is transparent in both directions: callers use the business subjects, the DAL uses the `db` subjects, and the service bridges them.
+
+== Tracing One Request End-to-End
+
+Scenario: a caller creates a new user.
+
+[source,bash]
+----
+nats req motadata.user.create \
+    '{"username":"alice","user_mail":"alice@example.com","password":"s3cr3t"}'
+----
+
+*Step 1: NATS delivers the message.*
+The NATS micro service routes the message to `UserHandler.HandleCreate` based on the registered subject.
+
+*Step 2: OTEL span starts.*
+
+[source,go]
+----
+ctx, span := s.tracer.Start(ctx, "user.create")
+defer span.End()
+----
+
+Everything from this point happens within the span.
+
+*Step 3: Unmarshal.*
+
+[source,go]
+----
+var event UserCreatedEvent
+if err := json.Unmarshal(msg.Data(), &event); err != nil {
+    msg.Error("400", "invalid JSON", nil)
+    return
+}
+----
+
+If the body is not valid JSON, the handler replies immediately with a 400 error.
+No hooks run.
+
+*Step 4: Pre-hooks run in priority order.*
+
+[source,go]
+----
+// Pre-sync hook (priority 1) — can abort
+if err := s.preCreateD(ctx, span, &event); err != nil {
+    msg.Error("422", err.Error(), nil)
+    return
+}
+
+// Pre-async hook (priority 2) — fire-and-forget
+_ = workerpool.AsyncWithCtx(ctx, s.wp, func() {
+    s.preCreateM(ctx, span, &event)
+})
+----
+
+The sync hook runs first.
+If it returns an error, the handler aborts — the async hook has not been dispatched yet and does not run.
+The async hook fires after the sync hook passes, dispatched to the workerpool; the main goroutine continues immediately.
+
+*Step 5: Validate required fields.*
+
+[source,go]
+----
+if event.UserName == "" || event.UserMail == "" {
+    msg.Error("400", "missing required fields", nil)
+    return
+}
+----
+
+Generated validation — TextGen iterates non-auto, non-hidden, non-nullable fields and builds this condition.
+Password is excluded (it is `hidden`).
+ID is excluded (it is `primaryKey` and `auto`).
+
+*Step 6: Set span attributes.*
+
+[source,go]
+----
+span.SetAttributes(
+    attribute.String("user.username", event.UserName),
+    attribute.String("user.email", event.UserMail),
+)
+----
+
+*Step 7: Forward to DAL.*
+
+[source,go]
+----
+dalResp, err := s.publisher.Request(
+    ctx,
+    "motadata.user.db.create",
+    requestBody,
+    headers,
+    30*time.Second,
+)
+if err != nil {
+    msg.Error("503", "DAL timeout", nil)
+    return
+}
+----
+
+Synchronous NATS request-reply with a 30-second timeout.
+The handler blocks until the DAL responds or the timeout fires.
+
+*Step 8: Post-hooks run.*
+
+[source,go]
+----
+// Post-sync hook — transforms response
+responseData = s.postGetFilterPII(ctx, span, &event, dalResp.Data())
+
+// Post-async hook — fire-and-forget
+_ = workerpool.AsyncWithCtx(ctx, s.wp, func() {
+    s.postCreateNotifyAdmin(ctx, span, &event, responseData)
+})
+----
+
+Post-sync hooks receive the DAL response as `[]byte` and return the (possibly modified) `[]byte`.
+Post-async hooks receive the response data but their return value is discarded.
+
+*Step 9: Reply to caller.*
+
+[source,go]
+----
+msg.Respond(responseData)
+----
+
+The caller receives the DAL's response, possibly transformed by post-sync hooks.
+
+== Hook Execution Model
+
+[cols="1,2,2", options="header"]
+|===
+| | Pre-operation | Post-operation
+
+| *Sync*
+| Runs in-line. Returns `error` to abort. Caller waits.
+| Runs in-line. Receives `[]byte`, returns modified `[]byte`. Caller waits.
+
+| *Async*
+| Dispatched to workerpool. Returns nothing. Caller does not wait.
+| Dispatched to workerpool. Receives `[]byte` read-only. Caller does not wait.
+|===
+
+Practical implications:
+
+* *Validation belongs in pre-sync.* Only pre-sync hooks can prevent the operation from reaching the DAL.
+* *Audit logging belongs in pre-async or post-async.* It should not block the operation.
+* *PII filtering belongs in post-sync.* It transforms the response before the caller sees it.
+* *Cache invalidation belongs in post-async.* It runs after the caller receives the response.
+
+[NOTE]
+====
+*Async hook error handling:* The line `_ = workerpool.AsyncWithCtx(...)` discards the workerpool's return value.
+Errors inside async hooks are swallowed — they do not propagate to the caller and do not abort the operation.
+This is intentional: fire-and-forget means the caller's flow is decoupled from the hook's outcome.
+If an async hook must report errors, it must do so internally (log, metric, alert) — not by returning an error.
+====
+
+== Service Discovery
+
+The NATS micro protocol provides built-in service discovery:
+
+[source,bash]
+----
+nats req '$SRV.INFO' ''
+----
+
+The response includes the service name, version, and the full list of registered endpoints.
+Test #21 in `demo.sh` verifies this — service discoverability is the final check after all 20 entity and relation tests pass.
+
+The service name in the response derives from the DSL's `NatsServer` concept → first-line comment in `main.go` → `sync.sh` extraction → Docker build argument.
+One declaration in MPS populates the discovery response.
+
+== Error Patterns
+
+Three categories of errors:
+
+[cols="1,2,2", options="header"]
+|===
+| Error | Caller Response | Root Cause
+
+| Invalid JSON
+| `400 invalid JSON` immediately
+| `json.Unmarshal` fails; no hooks run
+
+| Validation failure
+| `400 missing required fields` or hook-specific error
+| Required field empty, or pre-sync hook returns error
+
+| DAL timeout
+| `503 DAL timeout` after 30 seconds
+| DAL did not respond within the timeout window
+|===
+
+There is no retry logic.
+A DAL timeout means the caller receives a 503 and must decide whether to retry.
+The service does not retry on the caller's behalf.
+
+[WARNING]
+====
+*Watch for:*
+
+* Pre-async hooks that fire before pre-sync validation. If the async hook starts an irreversible action (sending an email, writing an audit record) and the sync validator then aborts the operation, the irreversible action has already happened. Priority ordering is the only protection — place sync validators at lower priority numbers (runs first).
+* Post-sync hooks that panic. A panic in a post-sync hook crashes the request goroutine; the caller never receives a response and the connection times out rather than getting a clean error.
+* Long-running pre-sync hooks. Because they block the request path, a slow pre-sync hook directly increases response latency for every caller. Use pre-async for anything that might take more than a few milliseconds.
+====

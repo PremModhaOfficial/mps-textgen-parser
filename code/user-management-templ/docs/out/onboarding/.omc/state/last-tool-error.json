@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"BASE=/home/prem-modha/projects/dsl/src/code/user-management-templ/docs/out && cd \\\"$BASE/feynman-guide\\\" && cat 01-the-problem.adoc 02-the-big-picture.adoc 03-the-dsl.adoc 04-the-pipeline....",
+  "error": "Exit code 21\nUnknown input format asciidoc",
+  "timestamp": "2026-03-20T10:42:45.031Z",
+  "retry_count": 1
+}

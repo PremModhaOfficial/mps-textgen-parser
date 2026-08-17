@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"go test -v -run 'Test(New)?Email|TestMustEmail|TestEmail' ./core/types/\",\"description\":\"Run email tests\"}",
+  "error": "Exit code 1\n# dev.azure.com/Motadata/NextGen/motadata-go-sdk/core/types [dev.azure.com/Motadata/NextGen/motadata-go-sdk/core/types.test]\ncore/types/intmap_test.go:11:17: cannot index NewIntMap (value of type func() *IntMap)\ncore/types/intmap_test.go:22:29: cannot index NewIntMapWithCapacity (value of type func(capacity int) *IntMap)\ncore/types/intmap_test.go:33:18: cannot index NewIntMap (value of type func() *IntMap)\ncore/types/intmap_test.go:34:18: cannot index NewIntMap (value of type func() ...",
+  "timestamp": "2026-03-10T13:28:41.114Z",
+  "retry_count": 1
+}

@@ -1,0 +1,119 @@
+= The Problem
+
+Imagine you have just finished writing `user.go`.
+It is 595 lines long.
+You need to write `roles.go` next.
+
+You open a blank file, and the first thing you type is the package declaration.
+Then the imports.
+Then the struct.
+Then five event types, one per operation.
+Then the handler struct and its constructor.
+Then five `Handle` methods — HandleCreate, HandleGet, HandleUpdate, HandleDelete, HandleList — each with the same skeleton: unmarshal the request into a typed event, run pre-hooks sorted by priority, validate required fields, forward to the DAL over NATS, run post-hooks, respond.
+
+You finish `roles.go` at 481 lines.
+Then `permissions.go` at 307 lines.
+Then `main.go` at 155 lines wiring them together.
+
+You now have 1,790 lines of Go code.
+You wrote roughly 1,540 of them by hand, following the same template in your head, substituting `User` for `Roles` for `Permissions` at each entity boundary.
+
+That is the problem.
+
+== The Recipe Analogy
+
+A professional kitchen does not rely on every chef memorizing the same recipes.
+It writes them down.
+Consistency comes from the recipe, not from the chef's memory.
+
+The equivalent in software is a template.
+When every entity handler follows the exact same structure — unmarshal, pre-hooks, validate, DAL forward, post-hooks, respond — that structure is a recipe.
+The specific entity (User, Roles, Permissions) is an ingredient list.
+
+But hand-writing 1,790 lines of Go from a mental recipe has costs:
+
+* You will make mistakes that a text editor cannot catch (wrong subject string, missing hook call, copy-paste with the wrong type name).
+* Every new entity means another ~400 lines of hand-written boilerplate.
+* When the recipe changes — say, OTEL span attributes need to appear in a new place — you update every handler by hand.
+
+The recipe should be written down _once_, in a form a computer can execute.
+
+== The Scale of the Boilerplate
+
+The UserManagement service manages three entities: User, Roles, Permissions.
+Each entity supports five operations: create, get, update, delete, list.
+That is fifteen handler methods.
+
+Each handler method follows this structure:
+
+. Start an OTEL span.
+. Unmarshal the incoming NATS message body into a typed event struct.
+. Run all pre-hooks for this operation, in priority order, distinguishing sync (can abort) from async (fire-and-forget).
+. Validate required fields.
+. Set span attributes.
+. Forward the request to the DAL via NATS request-reply with a timeout.
+. Run all post-hooks, distinguishing sync (transforms the response) from async (fire-and-forget).
+. Reply to the original NATS message.
+
+That is eight steps, repeated fifteen times across three files.
+On top of that, two relations (UserRoles, RolesPermissions) add six more handler methods with a similar but distinct structure.
+
+Twenty-one handler methods total.
+The structure is identical across all of them except for the type names and subject strings.
+
+A developer adding a fourth entity — say, `Tenants` — must write another 400+ lines of Go following this recipe exactly.
+Miss step 3 and pre-hooks silently do not run.
+Miss step 7 and post-hooks silently do not run.
+Get the DAL subject string wrong and the service appears to work until a specific operation triggers a silent routing failure.
+
+== What a Solution Looks Like
+
+The right solution separates _what an entity is_ from _how a handler works_.
+
+A developer declares:
+
+[source]
+----
+Entity: User
+  fields: id (uuid, primaryKey), username (string), email (email), password (password, hidden)
+  operations: create, get, update, delete, list
+  hooks on create: preCreateD (pre-sync), preCreateM (pre-async), postCreateNotifyAdmin (post-async)
+----
+
+A code generator reads this declaration and produces the 400-line handler file, correctly, every time.
+The developer never touches the generated file.
+When the recipe changes, the generator changes — and all handlers regenerate correctly.
+
+This is what the UserManagement DSL does.
+The MPS projectional editor holds the declaration.
+TextGen templates encode the recipe.
+`sync.sh` runs the pipeline.
+The result is 1,790 lines of correct, consistent Go code that the developer did not write and does not maintain.
+
+[NOTE]
+====
+*Design rationale:* The DSL does not generate _all_ Go code.
+It generates the structural scaffolding — the handler skeletons, the event types, the NATS wiring.
+Business logic lives in `userDefinedHooks.go`, which is preserved across regeneration by `merge_hooks.py`.
+The split is intentional: generated code should be disposable; business logic should not be.
+====
+
+== The Question That Started This
+
+During early development, the fifth time a handler method was written by hand, a question formed naturally:
+
+_What if adding a new entity took 15 lines of DSL instead of 300 lines of Go?_
+
+That question is the entire motivation for the system described in this guide.
+The answer is yes — and the path to that answer required learning MPS, building a Python bridge to escape a walled garden, writing a hook-merging script to survive regeneration, and shipping 21 passing end-to-end tests.
+
+The rest of this guide explains how.
+
+[WARNING]
+====
+*Watch for:*
+
+* The urge to "just hand-write it this one time." It is always _this one time_ until it is the fifteenth time.
+* Generated code that is also manually edited. When the generator reruns, edits disappear. If you find yourself editing generated files, the right fix is to change the template or add a hook.
+* Boilerplate growth that scales with entity count. If adding a new entity requires changes in N places proportional to the entity's operation count, you have a recipe without a recipe book.
+====

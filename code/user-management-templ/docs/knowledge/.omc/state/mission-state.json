@@ -1,0 +1,71 @@
+{
+  "updatedAt": "2026-03-20T08:38:37.593Z",
+  "missions": [
+    {
+      "id": "session:07327eac-a277-4dc3-bd08-e31715525315:none",
+      "source": "session",
+      "name": "none",
+      "objective": "Session mission",
+      "createdAt": "2026-03-20T08:33:56.409Z",
+      "updatedAt": "2026-03-20T08:38:37.593Z",
+      "status": "running",
+      "workerCount": 2,
+      "taskCounts": {
+        "total": 2,
+        "pending": 0,
+        "blocked": 0,
+        "inProgress": 1,
+        "completed": 1,
+        "failed": 0
+      },
+      "agents": [
+        {
+          "name": "Explore:a8f0287",
+          "role": "Explore",
+          "ownership": "a8f02877dbb9cef7b",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-03-20T08:34:10.103Z"
+        },
+        {
+          "name": "document-specialist:ad5f27e",
+          "role": "document-specialist",
+          "ownership": "ad5f27e392c75bf62",
+          "status": "running",
+          "currentStep": null,
+          "latestUpdate": null,
+          "completedSummary": null,
+          "updatedAt": "2026-03-20T08:38:37.593Z"
+        }
+      ],
+      "timeline": [
+        {
+          "id": "session-start:a8f02877dbb9cef7b:2026-03-20T08:33:56.409Z",
+          "at": "2026-03-20T08:33:56.409Z",
+          "kind": "update",
+          "agent": "Explore:a8f0287",
+          "detail": "started Explore:a8f0287",
+          "sourceKey": "session-start:a8f02877dbb9cef7b"
+        },
+        {
+          "id": "session-stop:a8f02877dbb9cef7b:2026-03-20T08:34:10.103Z",
+          "at": "2026-03-20T08:34:10.103Z",
+          "kind": "completion",
+          "agent": "Explore:a8f0287",
+          "detail": "completed",
+          "sourceKey": "session-stop:a8f02877dbb9cef7b"
+        },
+        {
+          "id": "session-start:ad5f27e392c75bf62:2026-03-20T08:38:37.593Z",
+          "at": "2026-03-20T08:38:37.593Z",
+          "kind": "update",
+          "agent": "document-specialist:ad5f27e",
+          "detail": "started document-specialist:ad5f27e",
+          "sourceKey": "session-start:ad5f27e392c75bf62"
+        }
+      ]
+    }
+  ]
+}

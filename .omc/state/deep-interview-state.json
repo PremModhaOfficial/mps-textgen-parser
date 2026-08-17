@@ -1,0 +1,20 @@
+{
+  "active": false,
+  "current_phase": "ralplan-critic-pending",
+  "interview_id": "dsl-learnings-001",
+  "type": "brownfield",
+  "current_ambiguity": "0.195",
+  "threshold": "0.2",
+  "rounds_completed": "6",
+  "status": "PAUSED — spec done, plan revised after Architect ITERATE, Critic review in-flight",
+  "spec_path": ".omc/specs/deep-interview-dsl-learnings.md",
+  "plan_path": ".omc/plans/knowledge-graph-plan.md",
+  "checklist_path": ".omc/knowledge-extraction-checklist.md",
+  "resume_instructions": "1. Read checklist + spec + plan. 2. Check if Critic output exists. 3. If APPROVE: proceed to autopilot execution. If ITERATE: apply changes. 4. Execution = build scaffold + interview for tacit knowledge.",
+  "_meta": {
+    "mode": "deep-interview",
+    "sessionId": null,
+    "updatedAt": "2026-03-19T13:48:55.636Z",
+    "updatedBy": "state_write_tool"
+  }
+}

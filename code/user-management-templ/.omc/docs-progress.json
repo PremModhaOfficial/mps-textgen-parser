@@ -1,0 +1,52 @@
+{
+  "document_title": "MotaDSLUM: Building a NATS Messaging Bridge with a DSL",
+  "target_format": "asciidoc",
+  "last_updated": "2026-03-19",
+  "sections": {
+    "the-problem": {
+      "status": "pending",
+      "word_count": 0,
+      "target_word_count": 800,
+      "file": "docs/sections/01-the-problem.adoc"
+    },
+    "the-big-picture": {
+      "status": "pending",
+      "word_count": 0,
+      "target_word_count": 1600,
+      "file": "docs/sections/02-the-big-picture.adoc"
+    },
+    "the-dsl": {
+      "status": "pending",
+      "word_count": 0,
+      "target_word_count": 2400,
+      "file": "docs/sections/03-the-dsl.adoc"
+    },
+    "the-pipeline": {
+      "status": "pending",
+      "word_count": 0,
+      "target_word_count": 3600,
+      "file": "docs/sections/04-the-pipeline.adoc"
+    },
+    "the-developer-flow": {
+      "status": "pending",
+      "word_count": 0,
+      "target_word_count": 2500,
+      "file": "docs/sections/05-the-developer-flow.adoc"
+    },
+    "the-user-flow": {
+      "status": "pending",
+      "word_count": 0,
+      "target_word_count": 1500,
+      "file": "docs/sections/06-the-user-flow.adoc"
+    },
+    "lessons-and-red-flags": {
+      "status": "pending",
+      "word_count": 0,
+      "target_word_count": 2000,
+      "file": "docs/sections/07-lessons-and-red-flags.adoc"
+    }
+  },
+  "lessons": [],
+  "total_word_count": 0,
+  "initialized": "2026-03-19"
+}

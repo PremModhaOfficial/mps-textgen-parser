@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"BASE=/home/prem-modha/projects/dsl/src/code/user-management-templ/docs/out\\n\\n# Function to strip emojis and generate PDF\\nstrip_and_pdf() {\\n    local input=\\\"$1\\\" output=\\\"$2\\\" title=\\\"$...",
+  "error": "Exit code 43\nError producing PDF.\n! LaTeX Error: Unicode character ├ (U+251C)\n               not set up for use with LaTeX.\n\nSee the LaTeX manual or LaTeX Companion for explanation.\nType  H <return>  for immediate help.\n ...                                              \n                                                  \nl.263 \\end{verbatim}",
+  "timestamp": "2026-03-20T10:44:31.192Z",
+  "retry_count": 2
+}

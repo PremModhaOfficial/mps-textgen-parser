@@ -1,0 +1,71 @@
+{
+  "title": "Production Readiness Audit - MotaDSLUM NATS Microservice",
+  "stories": [
+    {
+      "id": "US-001",
+      "title": "Missing workerpool initialization and graceful shutdown",
+      "priority": 1,
+      "passes": true,
+      "acceptanceCriteria": [
+        "workerpool.MustInit() is called in main() before any handler is created",
+        "workerpool.ShutdownWithTimeout(5s) is called explicitly before srv.Stop() during shutdown",
+        "go build succeeds with no compilation errors"
+      ]
+    },
+    {
+      "id": "US-002",
+      "title": "Password field exposed in JSON responses",
+      "priority": 2,
+      "passes": true,
+      "acceptanceCriteria": [
+        "User struct Password field has json:\"-\" tag instead of json:\"password\"",
+        "go build succeeds with no compilation errors"
+      ]
+    },
+    {
+      "id": "US-003",
+      "title": "microRequestAdapter.Context() loses SDK metadata (tenant ID, correlation ID, trace context)",
+      "priority": 3,
+      "passes": true,
+      "acceptanceCriteria": [
+        "microRequestAdapter.Context() calls core.InjectContext with request headers (not bare context.Background())",
+        "SDK metadata (tenant ID, correlation ID, trace context) is available to handlers via context",
+        "go build succeeds with no compilation errors"
+      ]
+    },
+    {
+      "id": "US-004",
+      "title": "Log level hardcoded to debug - not production configurable",
+      "priority": 4,
+      "passes": true,
+      "acceptanceCriteria": [
+        "Log level reads from LOG_LEVEL env var with fallback to 'info'",
+        "Environment reads from APP_ENV env var with fallback to 'production'",
+        "go build succeeds with no compilation errors"
+      ]
+    },
+    {
+      "id": "US-005",
+      "title": "UserRoles relation hook stubs missing OTEL child spans",
+      "priority": 5,
+      "passes": true,
+      "acceptanceCriteria": [
+        "preAssignHook, postAssignHook, preListHook, postListHook, preRemoveHook, postRemoveHook all create child spans via tracer.Start()",
+        "Span names follow convention: hook.{phase}.UserRoles.{operation}.{hookName}",
+        "go build succeeds with no compilation errors"
+      ]
+    },
+    {
+      "id": "US-006",
+      "title": "Interactive demo should show live app logs alongside test output",
+      "priority": 6,
+      "passes": true,
+      "acceptanceCriteria": [
+        "Demo script tails docker compose logs in background during test execution",
+        "Logs are visually separated from test output (color/prefix)",
+        "Log tailing is cleaned up on script exit",
+        "docker-compose.yml has LOG_LEVEL=debug and APP_ENV=development for app service"
+      ]
+    }
+  ]
+}

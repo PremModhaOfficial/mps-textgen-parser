@@ -1,0 +1,235 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1773215248212,
+  "projectRoot": "/home/prem-modha/projects/dsl/src",
+  "techStack": {
+    "languages": [
+      {
+        "name": "Go",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "go.mod"
+        ]
+      }
+    ],
+    "frameworks": [],
+    "packageManager": "go",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [],
+    "gitBranches": {
+      "defaultBranch": "master",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "__pycache__": {
+      "path": "__pycache__",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1773215248205,
+      "keyFiles": [
+        "parse_textgen.cpython-313.pyc"
+      ]
+    },
+    "code": {
+      "path": "code",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1773215248206,
+      "keyFiles": [
+        "CONTEXT.md",
+        "mise.toml"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "Entity_server_textgen.md",
+      "accessCount": 12,
+      "lastAccessed": 1773243961483,
+      "type": "file"
+    },
+    {
+      "path": "NatsServer_server_textgen.md",
+      "accessCount": 5,
+      "lastAccessed": 1773226143097,
+      "type": "file"
+    },
+    {
+      "path": "Relation_server_textgen.md",
+      "accessCount": 5,
+      "lastAccessed": 1773226144138,
+      "type": "file"
+    },
+    {
+      "path": "SqlSchema_sql_textgen.md",
+      "accessCount": 3,
+      "lastAccessed": 1773224205883,
+      "type": "file"
+    },
+    {
+      "path": "code/um-gen/main.go",
+      "accessCount": 3,
+      "lastAccessed": 1773246097995,
+      "type": "file"
+    },
+    {
+      "path": "parse_textgen.py",
+      "accessCount": 2,
+      "lastAccessed": 1773224210464,
+      "type": "file"
+    },
+    {
+      "path": "TEXTGEN_AI_PROMPT.md",
+      "accessCount": 2,
+      "lastAccessed": 1773224211920,
+      "type": "file"
+    },
+    {
+      "path": "TEXTGEN_GO_REFERENCE.md",
+      "accessCount": 2,
+      "lastAccessed": 1773224212622,
+      "type": "file"
+    },
+    {
+      "path": "code/um-gen/go.mod",
+      "accessCount": 2,
+      "lastAccessed": 1773226145007,
+      "type": "file"
+    },
+    {
+      "path": "code/um-gen/demo.sh",
+      "accessCount": 2,
+      "lastAccessed": 1773226145083,
+      "type": "file"
+    },
+    {
+      "path": "Entity_server_textgen_guide.md",
+      "accessCount": 1,
+      "lastAccessed": 1773215713573,
+      "type": "file"
+    },
+    {
+      "path": "TEXTGEN_PARSER_README.md",
+      "accessCount": 1,
+      "lastAccessed": 1773215713588,
+      "type": "file"
+    },
+    {
+      "path": "PREM_textgen.md",
+      "accessCount": 1,
+      "lastAccessed": 1773215717232,
+      "type": "file"
+    },
+    {
+      "path": "Th_textgen.md",
+      "accessCount": 1,
+      "lastAccessed": 1773215720805,
+      "type": "file"
+    },
+    {
+      "path": "appends.md",
+      "accessCount": 1,
+      "lastAccessed": 1773215721055,
+      "type": "file"
+    },
+    {
+      "path": "NatsServer_sql_textgen.md",
+      "accessCount": 1,
+      "lastAccessed": 1773224211356,
+      "type": "file"
+    },
+    {
+      "path": "code/um-gen/main.md",
+      "accessCount": 1,
+      "lastAccessed": 1773226136901,
+      "type": "file"
+    },
+    {
+      "path": "code/um-gen/user.go",
+      "accessCount": 1,
+      "lastAccessed": 1773226137375,
+      "type": "file"
+    },
+    {
+      "path": "code/um-gen/roles.go",
+      "accessCount": 1,
+      "lastAccessed": 1773226137443,
+      "type": "file"
+    },
+    {
+      "path": "code/um-gen/motadata-go-sdk/events/core/interfaces.go",
+      "accessCount": 1,
+      "lastAccessed": 1773226141151,
+      "type": "file"
+    },
+    {
+      "path": "code/um-gen/motadata-go-sdk/events/core/message.go",
+      "accessCount": 1,
+      "lastAccessed": 1773226141419,
+      "type": "file"
+    },
+    {
+      "path": "code/um-gen/motadata-go-sdk/events/transport/nats/publisher.go",
+      "accessCount": 1,
+      "lastAccessed": 1773226141776,
+      "type": "file"
+    },
+    {
+      "path": "code/um-gen/motadata-go-sdk/events/transport/nats/subscriber.go",
+      "accessCount": 1,
+      "lastAccessed": 1773226141996,
+      "type": "file"
+    },
+    {
+      "path": "code/um-gen/motadata-go-sdk/core/types/password.go",
+      "accessCount": 1,
+      "lastAccessed": 1773226142202,
+      "type": "file"
+    },
+    {
+      "path": "code/um-gen/motadata-go-sdk/core/types/email.go",
+      "accessCount": 1,
+      "lastAccessed": 1773226142507,
+      "type": "file"
+    },
+    {
+      "path": "code/um-gen/motadata-go-sdk/otel/tracer/tracer.go",
+      "accessCount": 1,
+      "lastAccessed": 1773226146033,
+      "type": "file"
+    },
+    {
+      "path": "code/um-gen/motadata-go-sdk/events/core/context.go",
+      "accessCount": 1,
+      "lastAccessed": 1773226146251,
+      "type": "file"
+    },
+    {
+      "path": "code/um-gen/go.sum",
+      "accessCount": 1,
+      "lastAccessed": 1773226146505,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

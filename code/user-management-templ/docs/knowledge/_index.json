@@ -1,0 +1,997 @@
+{
+  "version": 1,
+  "generated": "2026-03-20T15:20:44.685205",
+  "description": "DSL development learnings knowledge graph",
+  "node_count": 41,
+  "categories": [
+    "architecture",
+    "cross-cutting",
+    "deployment",
+    "dsl-evolution",
+    "experiments",
+    "hooks",
+    "mps-gotchas",
+    "post-success",
+    "sdk",
+    "testing",
+    "textgen",
+    "tooling"
+  ],
+  "projects": {
+    "v1": {
+      "path": "/home/prem-modha/MPSProjects/UserManagement",
+      "status": "failed-prototype"
+    },
+    "v2-uman": {
+      "path": "/home/prem-modha/MPSProjects/UMAN",
+      "status": "working-abandoned"
+    },
+    "v3": {
+      "path": "/home/prem-modha/UserManagmentMps",
+      "status": "production"
+    },
+    "experiments": {
+      "path": "/home/prem-modha/MPSProjects",
+      "status": "various"
+    },
+    "dls": {
+      "path": "/home/prem-modha/projects/DLS",
+      "status": "supplementary"
+    }
+  },
+  "nodes": [
+    {
+      "file": "architecture/_validation.md",
+      "title": "Architecture Validation Report",
+      "category": "architecture",
+      "project": "",
+      "depth": "",
+      "tags": [],
+      "links": []
+    },
+    {
+      "file": "architecture/json-ast-jinja-idea.md",
+      "title": "Alternative Approach: MPS TextGen \u2192 JSON AST \u2192 Jinja Templates",
+      "category": "architecture",
+      "project": "general",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "textgen/textgen-walled-garden",
+        "textgen/python-bridge-solution",
+        "mps-gotchas/one-concept-one-file-constraint",
+        "post-success/future-improvements"
+      ]
+    },
+    {
+      "file": "architecture/plugin-vs-ide-distribution.md",
+      "title": "Distributing the DSL: Plugin Approach vs Standalone IDE",
+      "category": "architecture",
+      "project": "general",
+      "depth": "deep",
+      "tags": [],
+      "links": [
+        "post-success/future-improvements",
+        "projects/m2-dslfoundry-attempt",
+        "mps-gotchas/one-concept-one-file-constraint"
+      ]
+    },
+    {
+      "file": "architecture/rust-proc-macro-alternative.md",
+      "title": "Alternative DSL Approach: Rust Declarative Macros (Working Prototype)",
+      "category": "architecture",
+      "project": "experiments",
+      "depth": "deep",
+      "tags": [],
+      "links": [
+        "textgen/textgen-walled-garden",
+        "architecture/json-ast-jinja-idea",
+        "projects/v3-user-managment-mps"
+      ]
+    },
+    {
+      "file": "architecture/schema-vs-entity-centric.md",
+      "title": "Schema-Centric vs Entity-Centric Architecture",
+      "category": "architecture",
+      "project": "general",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "projects/v2-uman",
+        "projects/v3-user-managment-mps",
+        "projects/v1-user-management"
+      ]
+    },
+    {
+      "file": "cross-cutting/_validation.md",
+      "title": "Validation Report: SQL Schema Generation",
+      "category": "",
+      "project": "",
+      "depth": "",
+      "tags": [],
+      "links": []
+    },
+    {
+      "file": "cross-cutting/sql-schema-generation.md",
+      "title": "SQL Schema Generation from DSL",
+      "category": "cross-cutting",
+      "project": "v3",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "projects/v3-user-managment-mps",
+        "dsl-evolution/field-types-evolution"
+      ]
+    },
+    {
+      "file": "deployment/_validation.md",
+      "title": "Deployment Validation Report",
+      "category": "deployment",
+      "project": "",
+      "depth": "",
+      "tags": [],
+      "links": []
+    },
+    {
+      "file": "deployment/docker-nats-setup.md",
+      "title": "Docker Compose + NATS Setup",
+      "category": "deployment",
+      "project": "v3",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "tooling/sync-pipeline",
+        "testing/demo-sh-e2e",
+        "projects/v3-user-managment-mps"
+      ]
+    },
+    {
+      "file": "dsl-evolution/_validation.md",
+      "title": "Validation Report: DSL Evolution Category",
+      "category": "",
+      "project": "",
+      "depth": "",
+      "tags": [],
+      "links": []
+    },
+    {
+      "file": "dsl-evolution/field-types-evolution.md",
+      "title": "Field Types \u2014 From SQL Primitives to Domain Types",
+      "category": "dsl-evolution",
+      "project": "general",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "cross-cutting/sql-schema-generation",
+        "projects/v2-uman",
+        "projects/v3-user-managment-mps"
+      ]
+    },
+    {
+      "file": "experiments/mps-learning-projects.md",
+      "title": "MPS Learning Projects \u2014 Go Syntax Recreation + Tutorials",
+      "category": "experiments",
+      "project": "experiments",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "projects/v1-user-management",
+        "mps-gotchas/one-concept-one-file-constraint"
+      ]
+    },
+    {
+      "file": "experiments/pcrd-working-crud-dsl.md",
+      "title": "pcrd \u2014 Prem's CRUD DSL (Working End-to-End, Same File Problem)",
+      "category": "experiments",
+      "project": "experiments",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "mps-gotchas/one-concept-one-file-constraint",
+        "projects/v2-uman",
+        "projects/v1-user-management"
+      ]
+    },
+    {
+      "file": "hooks/_validation.md",
+      "title": "Validation Report \u2014 Hooks Category",
+      "category": "",
+      "project": "",
+      "depth": "",
+      "tags": [],
+      "links": []
+    },
+    {
+      "file": "hooks/boolean-hooks-v1.md",
+      "title": "v1 Boolean Hooks \u2014 The Starting Point",
+      "category": "hooks",
+      "project": "v1",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "hooks/four-hook-signatures",
+        "projects/v1-user-management"
+      ]
+    },
+    {
+      "file": "hooks/four-hook-signatures.md",
+      "title": "The Four Hook Signatures",
+      "category": "hooks",
+      "project": "v3",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "hooks/boolean-hooks-v1",
+        "projects/v3-user-managment-mps",
+        "tooling/merge-hooks-story"
+      ]
+    },
+    {
+      "file": "hooks/hooks-as-customer-extensibility.md",
+      "title": "Hooks as Customer Extensibility \u2014 Not Just Developer Convenience",
+      "category": "hooks",
+      "project": "v3",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "hooks/four-hook-signatures",
+        "hooks/boolean-hooks-v1",
+        "tooling/merge-hooks-story"
+      ]
+    },
+    {
+      "file": "mps-gotchas/_validation.md",
+      "title": "Validation Report \u2014 MPS Gotchas Category",
+      "category": "",
+      "project": "",
+      "depth": "",
+      "tags": [],
+      "links": []
+    },
+    {
+      "file": "mps-gotchas/holder-concept-pattern.md",
+      "title": "The Holder Concept Pattern \u2014 0..1 Wrapper Around 0..n Children",
+      "category": "mps-gotchas",
+      "project": "general",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "mps-gotchas/scoping-still-unclear",
+        "post-success/future-improvements",
+        "mps-gotchas/one-concept-one-file-constraint"
+      ]
+    },
+    {
+      "file": "mps-gotchas/one-concept-one-file-constraint.md",
+      "title": "MPS Core Constraint: One Concept = One Generated File",
+      "category": "mps-gotchas",
+      "project": "general",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "projects/v2-uman",
+        "projects/v1-user-management",
+        "architecture/schema-vs-entity-centric"
+      ]
+    },
+    {
+      "file": "mps-gotchas/scoping-still-unclear.md",
+      "title": "MPS Scoping \u2014 Still Not Fully Understood",
+      "category": "mps-gotchas",
+      "project": "general",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "experiments/mps-learning-projects",
+        "mps-gotchas/one-concept-one-file-constraint"
+      ]
+    },
+    {
+      "file": "post-success/_validation.md",
+      "title": "Validation: post-success/future-improvements.md",
+      "category": "",
+      "project": "",
+      "depth": "",
+      "tags": [],
+      "links": []
+    },
+    {
+      "file": "post-success/future-improvements.md",
+      "title": "Post-Success: What to Do Differently Next Time",
+      "category": "post-success",
+      "project": "general",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "textgen/textgen-walled-garden",
+        "projects/m2-dslfoundry-attempt",
+        "tooling/merge-hooks-story",
+        "mps-gotchas/one-concept-one-file-constraint"
+      ]
+    },
+    {
+      "file": "projects/experiments-overview.md",
+      "title": "MPS Experiments \u2014 21 Projects in MPSProjects/",
+      "category": "experiments",
+      "project": "experiments",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "projects/m2-dslfoundry-attempt",
+        "projects/v1-user-management",
+        "projects/v2-uman"
+      ]
+    },
+    {
+      "file": "projects/m2-dslfoundry-attempt.md",
+      "title": "UserManageMentM2 \u2014 The DSL Foundry TextGen Attempt (Failed)",
+      "category": "textgen",
+      "project": "experiments",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "projects/v1-user-management",
+        "textgen/textgen-walled-garden",
+        "textgen/python-bridge-solution"
+      ]
+    },
+    {
+      "file": "projects/v1-user-management.md",
+      "title": "UserManagement \u2014 The Main Project (Same as UserManagmentMps)",
+      "category": "architecture",
+      "project": "v1",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "projects/v2-uman",
+        "projects/v3-user-managment-mps",
+        "textgen/textgen-walled-garden"
+      ]
+    },
+    {
+      "file": "projects/v2-uman.md",
+      "title": "UMAN \u2014 The First Serious Attempt (Prisma-Style, Single-File Problem)",
+      "category": "architecture",
+      "project": "v2-uman",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "projects/v1-user-management",
+        "projects/v3-user-managment-mps",
+        "architecture/schema-vs-entity-centric"
+      ]
+    },
+    {
+      "file": "projects/v3-user-managment-mps.md",
+      "title": "v3: UserManagmentMps \u2014 Production NATS Microservice",
+      "category": "architecture",
+      "project": "v3",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "projects/v1-user-management",
+        "projects/v2-uman",
+        "hooks/four-hook-signatures",
+        "tooling/merge-hooks-story",
+        "tooling/sync-pipeline",
+        "textgen/entity-textgen-template-full"
+      ]
+    },
+    {
+      "file": "sdk/_validation.md",
+      "title": "SDK Category Validation Report",
+      "category": "sdk",
+      "project": "",
+      "depth": "",
+      "tags": [],
+      "links": []
+    },
+    {
+      "file": "sdk/module-path-patching.md",
+      "title": "SDK Module Path Patching",
+      "category": "sdk",
+      "project": "v3",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "tooling/sync-pipeline",
+        "projects/v3-user-managment-mps"
+      ]
+    },
+    {
+      "file": "testing/_validation.md",
+      "title": "Validation Report: Testing Category",
+      "category": "",
+      "project": "",
+      "depth": "",
+      "tags": [],
+      "links": []
+    },
+    {
+      "file": "testing/demo-sh-e2e.md",
+      "title": "demo.sh \u2014 21 E2E Tests with Mock DAL",
+      "category": "testing",
+      "project": "v3",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "projects/v3-user-managment-mps",
+        "deployment/docker-nats-setup"
+      ]
+    },
+    {
+      "file": "textgen/_validation.md",
+      "title": "TextGen Category \u2014 Validation Report",
+      "category": "textgen",
+      "project": "",
+      "depth": "",
+      "tags": [],
+      "links": []
+    },
+    {
+      "file": "textgen/entity-textgen-template-full.md",
+      "title": "The Full Entity TextGen Template \u2014 300+ Lines of append Statements",
+      "category": "textgen",
+      "project": "v3",
+      "depth": "deep",
+      "tags": [],
+      "links": [
+        "textgen/textgen-walled-garden",
+        "textgen/textgen-debugging-pain",
+        "hooks/four-hook-signatures",
+        "tooling/merge-hooks-story",
+        "mps-gotchas/one-concept-one-file-constraint"
+      ]
+    },
+    {
+      "file": "textgen/hardcoded-strings-bug.md",
+      "title": "TextGen Lesson: Use Variables, Not Hardcoded Strings",
+      "category": "textgen",
+      "project": "v3",
+      "depth": "shallow",
+      "tags": [],
+      "links": [
+        "cross-cutting/sql-schema-generation",
+        "textgen/textgen-walled-garden"
+      ]
+    },
+    {
+      "file": "textgen/python-bridge-solution.md",
+      "title": "parse_textgen.py \u2014 The Reverse-Engineered TextGen Bridge",
+      "category": "textgen",
+      "project": "v3",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "textgen/textgen-walled-garden",
+        "projects/v1-user-management",
+        "mps-gotchas/one-concept-one-file-constraint"
+      ]
+    },
+    {
+      "file": "textgen/textgen-debugging-pain.md",
+      "title": "TextGen Has No Line Numbers or Breakpoints \u2014 Debugging is Blind",
+      "category": "textgen",
+      "project": "general",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "textgen/textgen-walled-garden",
+        "textgen/python-bridge-solution",
+        "post-success/future-improvements"
+      ]
+    },
+    {
+      "file": "textgen/textgen-walled-garden.md",
+      "title": "TextGen's Walled Garden \u2014 No Copy-Paste, No External Editing",
+      "category": "textgen",
+      "project": "general",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "textgen/python-bridge-solution",
+        "projects/m2-dslfoundry-attempt",
+        "mps-gotchas/one-concept-one-file-constraint"
+      ]
+    },
+    {
+      "file": "tooling/_validation.md",
+      "title": "Validation Report \u2014 Tooling Category",
+      "category": "tooling",
+      "project": "",
+      "depth": "",
+      "tags": [],
+      "links": []
+    },
+    {
+      "file": "tooling/merge-hooks-story.md",
+      "title": "merge_hooks.py \u2014 Preserving User Code Across Regeneration",
+      "category": "tooling",
+      "project": "v3",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "hooks/four-hook-signatures",
+        "tooling/sync-pipeline",
+        "mps-gotchas/one-concept-one-file-constraint",
+        "projects/v3-user-managment-mps"
+      ]
+    },
+    {
+      "file": "tooling/sync-pipeline.md",
+      "title": "sync.sh \u2014 The Generation Pipeline",
+      "category": "tooling",
+      "project": "v3",
+      "depth": "",
+      "tags": [],
+      "links": [
+        "sdk/module-path-patching",
+        "tooling/merge-hooks-story",
+        "sdk/module-path-patching",
+        "deployment/docker-nats-setup"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "architecture/json-ast-jinja-idea.md",
+      "to": "textgen/textgen-walled-garden",
+      "type": "related"
+    },
+    {
+      "from": "architecture/json-ast-jinja-idea.md",
+      "to": "textgen/python-bridge-solution",
+      "type": "related"
+    },
+    {
+      "from": "architecture/json-ast-jinja-idea.md",
+      "to": "mps-gotchas/one-concept-one-file-constraint",
+      "type": "related"
+    },
+    {
+      "from": "architecture/json-ast-jinja-idea.md",
+      "to": "post-success/future-improvements",
+      "type": "related"
+    },
+    {
+      "from": "architecture/plugin-vs-ide-distribution.md",
+      "to": "post-success/future-improvements",
+      "type": "related"
+    },
+    {
+      "from": "architecture/plugin-vs-ide-distribution.md",
+      "to": "projects/m2-dslfoundry-attempt",
+      "type": "related"
+    },
+    {
+      "from": "architecture/plugin-vs-ide-distribution.md",
+      "to": "mps-gotchas/one-concept-one-file-constraint",
+      "type": "related"
+    },
+    {
+      "from": "architecture/rust-proc-macro-alternative.md",
+      "to": "textgen/textgen-walled-garden",
+      "type": "related"
+    },
+    {
+      "from": "architecture/rust-proc-macro-alternative.md",
+      "to": "architecture/json-ast-jinja-idea",
+      "type": "related"
+    },
+    {
+      "from": "architecture/rust-proc-macro-alternative.md",
+      "to": "projects/v3-user-managment-mps",
+      "type": "related"
+    },
+    {
+      "from": "architecture/schema-vs-entity-centric.md",
+      "to": "projects/v2-uman",
+      "type": "related"
+    },
+    {
+      "from": "architecture/schema-vs-entity-centric.md",
+      "to": "projects/v3-user-managment-mps",
+      "type": "related"
+    },
+    {
+      "from": "architecture/schema-vs-entity-centric.md",
+      "to": "projects/v1-user-management",
+      "type": "related"
+    },
+    {
+      "from": "cross-cutting/sql-schema-generation.md",
+      "to": "projects/v3-user-managment-mps",
+      "type": "related"
+    },
+    {
+      "from": "cross-cutting/sql-schema-generation.md",
+      "to": "dsl-evolution/field-types-evolution",
+      "type": "related"
+    },
+    {
+      "from": "deployment/docker-nats-setup.md",
+      "to": "tooling/sync-pipeline",
+      "type": "related"
+    },
+    {
+      "from": "deployment/docker-nats-setup.md",
+      "to": "testing/demo-sh-e2e",
+      "type": "related"
+    },
+    {
+      "from": "deployment/docker-nats-setup.md",
+      "to": "projects/v3-user-managment-mps",
+      "type": "related"
+    },
+    {
+      "from": "dsl-evolution/field-types-evolution.md",
+      "to": "cross-cutting/sql-schema-generation",
+      "type": "related"
+    },
+    {
+      "from": "dsl-evolution/field-types-evolution.md",
+      "to": "projects/v2-uman",
+      "type": "related"
+    },
+    {
+      "from": "dsl-evolution/field-types-evolution.md",
+      "to": "projects/v3-user-managment-mps",
+      "type": "related"
+    },
+    {
+      "from": "experiments/mps-learning-projects.md",
+      "to": "projects/v1-user-management",
+      "type": "related"
+    },
+    {
+      "from": "experiments/mps-learning-projects.md",
+      "to": "mps-gotchas/one-concept-one-file-constraint",
+      "type": "related"
+    },
+    {
+      "from": "experiments/pcrd-working-crud-dsl.md",
+      "to": "mps-gotchas/one-concept-one-file-constraint",
+      "type": "related"
+    },
+    {
+      "from": "experiments/pcrd-working-crud-dsl.md",
+      "to": "projects/v2-uman",
+      "type": "related"
+    },
+    {
+      "from": "experiments/pcrd-working-crud-dsl.md",
+      "to": "projects/v1-user-management",
+      "type": "related"
+    },
+    {
+      "from": "hooks/boolean-hooks-v1.md",
+      "to": "hooks/four-hook-signatures",
+      "type": "related"
+    },
+    {
+      "from": "hooks/boolean-hooks-v1.md",
+      "to": "projects/v1-user-management",
+      "type": "related"
+    },
+    {
+      "from": "hooks/four-hook-signatures.md",
+      "to": "hooks/boolean-hooks-v1",
+      "type": "related"
+    },
+    {
+      "from": "hooks/four-hook-signatures.md",
+      "to": "projects/v3-user-managment-mps",
+      "type": "related"
+    },
+    {
+      "from": "hooks/four-hook-signatures.md",
+      "to": "tooling/merge-hooks-story",
+      "type": "related"
+    },
+    {
+      "from": "hooks/hooks-as-customer-extensibility.md",
+      "to": "hooks/four-hook-signatures",
+      "type": "related"
+    },
+    {
+      "from": "hooks/hooks-as-customer-extensibility.md",
+      "to": "hooks/boolean-hooks-v1",
+      "type": "related"
+    },
+    {
+      "from": "hooks/hooks-as-customer-extensibility.md",
+      "to": "tooling/merge-hooks-story",
+      "type": "related"
+    },
+    {
+      "from": "mps-gotchas/holder-concept-pattern.md",
+      "to": "mps-gotchas/scoping-still-unclear",
+      "type": "related"
+    },
+    {
+      "from": "mps-gotchas/holder-concept-pattern.md",
+      "to": "post-success/future-improvements",
+      "type": "related"
+    },
+    {
+      "from": "mps-gotchas/holder-concept-pattern.md",
+      "to": "mps-gotchas/one-concept-one-file-constraint",
+      "type": "related"
+    },
+    {
+      "from": "mps-gotchas/one-concept-one-file-constraint.md",
+      "to": "projects/v2-uman",
+      "type": "related"
+    },
+    {
+      "from": "mps-gotchas/one-concept-one-file-constraint.md",
+      "to": "projects/v1-user-management",
+      "type": "related"
+    },
+    {
+      "from": "mps-gotchas/one-concept-one-file-constraint.md",
+      "to": "architecture/schema-vs-entity-centric",
+      "type": "related"
+    },
+    {
+      "from": "mps-gotchas/scoping-still-unclear.md",
+      "to": "experiments/mps-learning-projects",
+      "type": "related"
+    },
+    {
+      "from": "mps-gotchas/scoping-still-unclear.md",
+      "to": "mps-gotchas/one-concept-one-file-constraint",
+      "type": "related"
+    },
+    {
+      "from": "post-success/future-improvements.md",
+      "to": "textgen/textgen-walled-garden",
+      "type": "related"
+    },
+    {
+      "from": "post-success/future-improvements.md",
+      "to": "projects/m2-dslfoundry-attempt",
+      "type": "related"
+    },
+    {
+      "from": "post-success/future-improvements.md",
+      "to": "tooling/merge-hooks-story",
+      "type": "related"
+    },
+    {
+      "from": "post-success/future-improvements.md",
+      "to": "mps-gotchas/one-concept-one-file-constraint",
+      "type": "related"
+    },
+    {
+      "from": "projects/experiments-overview.md",
+      "to": "projects/m2-dslfoundry-attempt",
+      "type": "related"
+    },
+    {
+      "from": "projects/experiments-overview.md",
+      "to": "projects/v1-user-management",
+      "type": "related"
+    },
+    {
+      "from": "projects/experiments-overview.md",
+      "to": "projects/v2-uman",
+      "type": "related"
+    },
+    {
+      "from": "projects/m2-dslfoundry-attempt.md",
+      "to": "projects/v1-user-management",
+      "type": "related"
+    },
+    {
+      "from": "projects/m2-dslfoundry-attempt.md",
+      "to": "textgen/textgen-walled-garden",
+      "type": "related"
+    },
+    {
+      "from": "projects/m2-dslfoundry-attempt.md",
+      "to": "textgen/python-bridge-solution",
+      "type": "related"
+    },
+    {
+      "from": "projects/v1-user-management.md",
+      "to": "projects/v2-uman",
+      "type": "related"
+    },
+    {
+      "from": "projects/v1-user-management.md",
+      "to": "projects/v3-user-managment-mps",
+      "type": "related"
+    },
+    {
+      "from": "projects/v1-user-management.md",
+      "to": "textgen/textgen-walled-garden",
+      "type": "related"
+    },
+    {
+      "from": "projects/v2-uman.md",
+      "to": "projects/v1-user-management",
+      "type": "related"
+    },
+    {
+      "from": "projects/v2-uman.md",
+      "to": "projects/v3-user-managment-mps",
+      "type": "related"
+    },
+    {
+      "from": "projects/v2-uman.md",
+      "to": "architecture/schema-vs-entity-centric",
+      "type": "related"
+    },
+    {
+      "from": "projects/v3-user-managment-mps.md",
+      "to": "projects/v1-user-management",
+      "type": "related"
+    },
+    {
+      "from": "projects/v3-user-managment-mps.md",
+      "to": "projects/v2-uman",
+      "type": "related"
+    },
+    {
+      "from": "projects/v3-user-managment-mps.md",
+      "to": "hooks/four-hook-signatures",
+      "type": "related"
+    },
+    {
+      "from": "projects/v3-user-managment-mps.md",
+      "to": "tooling/merge-hooks-story",
+      "type": "related"
+    },
+    {
+      "from": "projects/v3-user-managment-mps.md",
+      "to": "tooling/sync-pipeline",
+      "type": "related"
+    },
+    {
+      "from": "projects/v3-user-managment-mps.md",
+      "to": "textgen/entity-textgen-template-full",
+      "type": "related"
+    },
+    {
+      "from": "sdk/module-path-patching.md",
+      "to": "tooling/sync-pipeline",
+      "type": "related"
+    },
+    {
+      "from": "sdk/module-path-patching.md",
+      "to": "projects/v3-user-managment-mps",
+      "type": "related"
+    },
+    {
+      "from": "testing/demo-sh-e2e.md",
+      "to": "projects/v3-user-managment-mps",
+      "type": "related"
+    },
+    {
+      "from": "testing/demo-sh-e2e.md",
+      "to": "deployment/docker-nats-setup",
+      "type": "related"
+    },
+    {
+      "from": "textgen/entity-textgen-template-full.md",
+      "to": "textgen/textgen-walled-garden",
+      "type": "related"
+    },
+    {
+      "from": "textgen/entity-textgen-template-full.md",
+      "to": "textgen/textgen-debugging-pain",
+      "type": "related"
+    },
+    {
+      "from": "textgen/entity-textgen-template-full.md",
+      "to": "hooks/four-hook-signatures",
+      "type": "related"
+    },
+    {
+      "from": "textgen/entity-textgen-template-full.md",
+      "to": "tooling/merge-hooks-story",
+      "type": "related"
+    },
+    {
+      "from": "textgen/entity-textgen-template-full.md",
+      "to": "mps-gotchas/one-concept-one-file-constraint",
+      "type": "related"
+    },
+    {
+      "from": "textgen/hardcoded-strings-bug.md",
+      "to": "cross-cutting/sql-schema-generation",
+      "type": "related"
+    },
+    {
+      "from": "textgen/hardcoded-strings-bug.md",
+      "to": "textgen/textgen-walled-garden",
+      "type": "related"
+    },
+    {
+      "from": "textgen/python-bridge-solution.md",
+      "to": "textgen/textgen-walled-garden",
+      "type": "related"
+    },
+    {
+      "from": "textgen/python-bridge-solution.md",
+      "to": "projects/v1-user-management",
+      "type": "related"
+    },
+    {
+      "from": "textgen/python-bridge-solution.md",
+      "to": "mps-gotchas/one-concept-one-file-constraint",
+      "type": "related"
+    },
+    {
+      "from": "textgen/textgen-debugging-pain.md",
+      "to": "textgen/textgen-walled-garden",
+      "type": "related"
+    },
+    {
+      "from": "textgen/textgen-debugging-pain.md",
+      "to": "textgen/python-bridge-solution",
+      "type": "related"
+    },
+    {
+      "from": "textgen/textgen-debugging-pain.md",
+      "to": "post-success/future-improvements",
+      "type": "related"
+    },
+    {
+      "from": "textgen/textgen-walled-garden.md",
+      "to": "textgen/python-bridge-solution",
+      "type": "related"
+    },
+    {
+      "from": "textgen/textgen-walled-garden.md",
+      "to": "projects/m2-dslfoundry-attempt",
+      "type": "related"
+    },
+    {
+      "from": "textgen/textgen-walled-garden.md",
+      "to": "mps-gotchas/one-concept-one-file-constraint",
+      "type": "related"
+    },
+    {
+      "from": "tooling/merge-hooks-story.md",
+      "to": "hooks/four-hook-signatures",
+      "type": "related"
+    },
+    {
+      "from": "tooling/merge-hooks-story.md",
+      "to": "tooling/sync-pipeline",
+      "type": "related"
+    },
+    {
+      "from": "tooling/merge-hooks-story.md",
+      "to": "mps-gotchas/one-concept-one-file-constraint",
+      "type": "related"
+    },
+    {
+      "from": "tooling/merge-hooks-story.md",
+      "to": "projects/v3-user-managment-mps",
+      "type": "related"
+    },
+    {
+      "from": "tooling/sync-pipeline.md",
+      "to": "sdk/module-path-patching",
+      "type": "related"
+    },
+    {
+      "from": "tooling/sync-pipeline.md",
+      "to": "tooling/merge-hooks-story",
+      "type": "related"
+    },
+    {
+      "from": "tooling/sync-pipeline.md",
+      "to": "sdk/module-path-patching",
+      "type": "related"
+    },
+    {
+      "from": "tooling/sync-pipeline.md",
+      "to": "deployment/docker-nats-setup",
+      "type": "related"
+    }
+  ]
+}

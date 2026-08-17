@@ -1,0 +1,355 @@
+= The Pipeline
+[[the-pipeline]]
+
+The pipeline is the machinery between the DSL declaration and a running Docker container.
+It is not one script — it is a chain of tools, each solving a problem the previous tool could not.
+
+Understanding the chain requires understanding _why_ each tool exists, which means understanding the constraints that made the naive approach fail.
+
+== The Walled Garden
+
+The central constraint of the entire pipeline is MPS's projectional editor.
+
+In a text editor, templates are text files.
+You write them in your editor of choice, use AI assistance, copy-paste from working code, version them as plain text in git.
+
+In MPS, templates are stored as binary `.mps` XML files.
+You author them through MPS's completion menus — not by typing text, but by selecting nodes and invoking editor actions.
+There is no way to paste a Go handler from an external editor into a TextGen buffer.
+There is no way to copy TextGen content out to a plain text file.
+There is no way to use an AI assistant to help write the template.
+
+This is the walled garden.
+Everything inside MPS is inaccessible to external tooling.
+Everything external to MPS cannot enter.
+
+Three walls:
+
+. *No import:* Cannot paste code snippets into TextGen buffers. Every character must be typed through MPS completion menus.
+. *No export:* Cannot copy TextGen content to an external file for editing or AI assistance.
+. *No tooling:* Cannot use scripts, AI, or any external tool to modify templates directly.
+
+For a 300-`append`-statement template producing 400 lines of Go per entity, the walled garden means weeks of manual authoring.
+
+=== The Wrong Solution: Find a Better Plugin
+
+The first attempt to escape the walled garden was to switch from native MPS TextGen to the DSL Foundry TextGen plugin.
+
+The attempt failed.
+Documentation was sparse.
+The groupings model — how DSL Foundry structures template output — was opaque without guides.
+After significant time invested, the attempt was abandoned without producing a working template.
+
+The lesson: switching plugins is not always the right escape route.
+Sometimes the right answer is to build a bridge.
+
+=== The Right Solution: parse_textgen.py
+
+`parse_textgen.py` is a Python script that reverse-engineers the MPS TextGen XML format.
+
+The approach:
+
+. Examine existing TextGen `.mps` files from templates that work.
+. Map each TextGen node type to its XML representation.
+. Build a parser that accepts human-readable markdown files that _look like_ TextGen templates.
+. Convert the markdown to valid `.mps` XML.
+. Load the `.mps` file into MPS as if it were authored natively.
+
+[source,text]
+----
+# What you write (plain markdown):
+package ${node.name.toLowerCase()}\n
+
+import (\n
+    ${node.needWorkerPool() ? '"workerpool"' : ''}\n
+)\n
+
+# What parse_textgen.py produces (MPS XML, abbreviated):
+<node concept="AppendOperation">
+  <property role="text" value="package "/>
+  <node concept="NodeReference">
+    <ref role="node" to="..."/>
+    <node concept="GetProperty">
+      <property role="method" value="toLowerCase"/>
+    </node>
+  </node>
+  <property role="text" value="\n"/>
+</node>
+----
+
+The reverse engineering consumed one full day including bug fixing.
+The hardest part: each TextGen node type has a different child arrangement in the XML.
+String interpolations (`${...}`) have a different structure than literal text.
+Conditional expressions have a different structure than loops.
+Each combination required its own mapping rule.
+
+The payoff: writing a new TextGen template becomes a matter of authoring a plain markdown file.
+AI assistance, copy-paste from working Go code, external editors — all become available again.
+TextGen changes are also diffable in git: markdown diffs instead of binary `.mps` diffs.
+
+[NOTE]
+====
+*Design rationale:* `parse_textgen.py` is a bridge, not a replacement.
+MPS still runs TextGen — it reads the `.mps` file and executes generation as normal.
+The bridge only changes how templates are _authored_.
+====
+
+== The One-Concept-One-File Constraint
+
+MPS imposes: one root concept instance in the sandbox produces one output file from TextGen.
+
+This reveals itself when you try to generate separate files.
+
+=== The Wrong Model: Single-File Everything
+
+The natural instinct — especially coming from Prisma — is to define all entities in one place:
+
+[source]
+----
+Models {
+  Entity: User { ... }
+  Entity: Roles { ... }
+  Entity: Permissions { ... }
+}
+----
+
+With MPS TextGen, this produces _one file_ containing all three entity handlers combined.
+UMAN made this mistake — its TextGen file grew to 560 KB, the largest of all projects.
+`pcrd` made the same mistake: it generated working end-to-end code (Go Gin server, SQL schema, Docker setup) but all entities landed in one giant file.
+
+=== The Right Model: Separate Root Concepts
+
+To get `user.go`, `roles.go`, and `permissions.go` as separate files, each entity must be a separate root concept in the MPS sandbox:
+
+[source]
+----
+Sandbox:
+  Main         (root) → main.go
+  User         (root) → user.go   (includes UserRoles relation handlers)
+  Roles        (root) → roles.go  (includes RolesPermissions relation handlers)
+  Permissions  (root) → permissions.go
+  SqlSchem     (root) → sqlPrem_init_sql.sql
+----
+
+Each root concept = one TextGen execution = one output file.
+
+Relations are children of their owning entity, not standalone root concepts.
+`UserRoles` lives inside `User` and generates into `user.go`.
+This is why relation handlers appear in the same file as entity handlers — not by coincidence, but by constraint.
+
+[NOTE]
+====
+*Design rationale:* The `Main` concept does not _contain_ entities — it _references_ them via `EntityRef` nodes.
+This keeps entity definitions self-contained while allowing `main.go` to know which handlers to wire up.
+====
+
+== Stage 1: MPS TextGen Output
+
+When MPS runs TextGen on the sandbox, it produces raw Go files with `#HOOKS_START` / `#HOOKS_END` markers embedded:
+
+[source,go]
+----
+// user.go (generated — DO NOT EDIT)
+
+// ... UserHandler struct, constructor, Handle methods ...
+
+// #HOOKS_START
+func (s *UserHandler) preCreateD(ctx context.Context, span tracer.Span,
+    event *UserCreatedEvent) error {
+    return nil
+}
+
+func (s *UserHandler) preCreateM(ctx context.Context, span tracer.Span,
+    event *UserCreatedEvent) {
+}
+
+func (s *UserHandler) postCreateNotifyAdmin(ctx context.Context, span tracer.Span,
+    event *UserCreatedEvent, data []byte) {
+}
+// #HOOKS_END
+----
+
+The markers exist because `userDefinedHooks.go` must be a separate file — but MPS cannot generate it directly without creating a cluttering root concept.
+The solution: generate stubs _inside_ entity files, then extract them externally.
+
+== Stage 2: merge_hooks.py — Hook Extraction and Merge
+
+`merge_hooks.py` reads every generated entity file, extracts the stubs between `#HOOKS_START` and `#HOOKS_END`, and merges them into `userDefinedHooks.go`.
+
+The merge has three outcomes per hook stub:
+
+[cols="1,2", options="header"]
+|===
+| Outcome | Condition
+
+| *Add* | Hook stub is new — not yet in `userDefinedHooks.go`. Appended.
+| *Skip* | Hook stub already exists in `userDefinedHooks.go` with matching signature. Developer's implementation is preserved.
+| *Replace* | Hook stub exists but signature has changed (sync ↔ async flip). Stub is replaced; old implementation is printed as a warning.
+|===
+
+Identity key: `*ReceiverType.funcName` (e.g., `*UserHandler.preCreateD`).
+This prevents collisions when multiple entity handlers have hooks with the same name — `*UserHandler.preCreate` and `*RolesHandler.preCreate` are distinct keys.
+
+=== War Story: The Signature Mismatch
+
+A hook was changed from post-sync to post-async.
+The signature changed from:
+
+[source,go]
+----
+// Before: post-sync — transforms response, returns []byte
+func (s *UserHandler) postCreate(ctx context.Context, span tracer.Span,
+    event *UserCreatedEvent, data []byte) []byte {
+    // developer's implementation
+    return modifiedData
+}
+----
+
+to:
+
+[source,go]
+----
+// After: post-async — fire-and-forget, no return value
+func (s *UserHandler) postCreate(ctx context.Context, span tracer.Span,
+    event *UserCreatedEvent, data []byte) {
+}
+----
+
+The name stayed the same.
+Before signature change detection was added, `merge_hooks.py` kept the old implementation — with the wrong return type.
+The build broke with a type error.
+
+The fix: compare signatures on every merge, not just names.
+When a mismatch is detected, the old implementation is printed to stdout as a warning and the stub is replaced.
+The developer sees the warning and migrates the logic manually.
+
+*Principle:* Presence is not equivalence. A function with the right name and the wrong shape is not the right function.
+
+== Stage 3: sync.sh — Copy, Merge, Patch, Build
+
+`sync.sh` orchestrates the full pipeline in eight steps:
+
+[source,bash]
+----
+# Step 1: Copy .go and .sql from MPS source_gen/ into src/
+cp source_gen/*.go src/
+cp source_gen/*.sql src/
+
+# Step 2: Run merge_hooks.py
+python3 merge_hooks.py
+
+# Step 3: Extract project name from main.go first-line comment
+APP_NAME=$(head -1 src/main.go | sed 's|^// *||')
+
+# Step 4: Sync vendored SDK
+rsync -av ~/projects/nextgen/gosdk/motadata-go-sdk/ motadata-go-sdk/
+
+# Step 5: Patch SDK module path (motadatagosdk → dev.azure.com/...)
+sed -i 's|^module motadatagosdk|module dev.azure.com/Motadata/NextGen/motadata-go-sdk|' \
+    motadata-go-sdk/go.mod
+
+# Step 6: Fix SDK internal imports
+find motadata-go-sdk -name '*.go' -exec sed -i \
+    's|"motadatagosdk/|"dev.azure.com/Motadata/NextGen/motadata-go-sdk/|g' {} +
+
+# Step 7: Kill lingering processes on service ports
+fuser -k 4229/tcp 8222/tcp 2>/dev/null || true
+
+# Step 8: Build and start Docker Compose
+docker compose build --build-arg APP_NAME="$APP_NAME"
+docker compose up -d
+----
+
+=== The SDK Module Path Problem
+
+The Motadata Go SDK is vendored — copied locally — because it is not published to a Go module registry yet.
+
+The SDK source uses `motadatagosdk` as its module name.
+The generated Go files import `dev.azure.com/Motadata/NextGen/motadata-go-sdk/events/core`.
+These do not match — Go refuses to build.
+
+`sync.sh` patches the mismatch in steps 5 and 6.
+The `sed` commands are idempotent: patching an already-patched file is safe, so every `sync.sh` run leaves the SDK in a consistent state.
+
+When the SDK is eventually published to a registry, steps 4–6 can be removed entirely.
+The generated imports will resolve directly via `go mod`.
+
+[NOTE]
+====
+*Design rationale:* The project name flows from DSL → generated comment → `sync.sh` extraction → Docker build arg → container name.
+A config file would be cleaner, but the first-line comment is generated automatically from the DSL's `NatsServer` concept.
+Single source of truth: change the name in MPS and it propagates through the entire stack.
+====
+
+== Stage 4: Docker Compose
+
+Two services in `docker-compose.yml`:
+
+* *nats:* `nats:2.10-alpine` with JetStream enabled, healthcheck on `:8222/healthz`
+* *app:* Built from `Dockerfile`, waits for NATS to be healthy before starting
+
+Port mapping:
+* `4229:4222` — NATS client port (external 4229, internal 4222)
+* `8222:8222` — NATS HTTP monitoring
+
+The port mismatch (4229 vs 4222) exists because 4222 was already in use on the development machine.
+It is a trivial local conflict resolution, not an architectural choice.
+
+The app connects to `nats://nats:4222` on the internal Docker network.
+`demo.sh` connects to `nats://localhost:4229` from the host.
+
+Step 7 in `sync.sh` (`fuser -k 4229/tcp 8222/tcp`) clears any lingering processes before each rebuild, preventing port conflicts from previous runs.
+
+== The Full Pipeline in One View
+
+....
+MPS DSL (UserManagmentMps/)
+  │
+  │  Author TextGen templates via markdown + parse_textgen.py
+  │  (escapes walled garden)
+  │
+  ▼
+TextGen generates:
+  source_gen/main.go          155 lines
+  source_gen/user.go          595 lines + #HOOKS markers
+  source_gen/roles.go         481 lines + #HOOKS markers
+  source_gen/permissions.go   307 lines + #HOOKS markers
+  source_gen/sqlPrem_init_sql.sql  31 lines
+  │
+  │  sync.sh step 1: copy to src/
+  │
+  ▼
+src/*.go  (copied, will be overwritten on next sync)
+  │
+  │  sync.sh step 2: merge_hooks.py
+  │    - extract stubs from #HOOKS markers
+  │    - add new / skip existing / replace changed-signature
+  │
+  ▼
+src/userDefinedHooks.go  221 lines, 30+ stubs, preserved across regeneration
+  │
+  │  sync.sh steps 3–6: name extraction, SDK rsync + patch
+  │
+  ▼
+motadata-go-sdk/  vendored, module path patched to dev.azure.com/...
+  │
+  │  sync.sh steps 7–8: kill old processes, docker compose build + up
+  │
+  ▼
+Running container on port 4229 (NATS microservice)
+  │
+  │  demo.sh: 21 e2e tests with mock DAL
+  │
+  ▼
+All 21 tests pass ✓
+....
+
+[WARNING]
+====
+*Watch for:*
+
+* Running `sync.sh` without MPS having regenerated first. The script copies from `source_gen/` — if those files are stale, the container is stale.
+* Manually editing files in `src/` other than `userDefinedHooks.go`. Overwritten at step 1.
+* Hook signature changes that go unnoticed. `merge_hooks.py` prints a warning but does not fail the build. Check stdout after every sync that modifies a hook definition in MPS.
+* The `user_roless` double-s bug: junction table `iam.user_roless` has a doubled suffix because a hardcoded `"s"` string was appended to entity names that already ended in `s`. Always use DSL variables for name construction, not hardcoded string fragments.
+====

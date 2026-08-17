@@ -278,12 +278,14 @@ def extract_ids_from_project(project_dir, concept_name):
                     structure_uuid = m.group(1)
 
                 # Extract concept ID
-                # Look for a ConceptDeclaration with the given name
-                m = re.search(r'<node concept="1TIwiD" id="([^"]+)".*?name="{}"'.format(re.escape(concept_name)), content)
-                if not m: # fallback if attributes are ordered differently
-                    m = re.search(r'<node.*?id="([^"]+)".*?name="{}"'.format(re.escape(concept_name)), content)
-                if m:
-                    concept_id = m.group(1)
+                # MPS XML: <node concept="1TIwiD" id="X"> ... <property role="TrG5h" value="Name"/> ...
+                # Extract all ConceptDeclaration (id, name) pairs and match
+                for block in re.findall(r'<node concept="1TIwiD" id="([^"]+)"[^>]*>(.*?)</node>', content, re.DOTALL):
+                    node_id, node_body = block
+                    name_m = re.search(r'<property role="TrG5h" value="([^"]+)"', node_body)
+                    if name_m and name_m.group(1) == concept_name:
+                        concept_id = node_id
+                        break
 
         elif fname.endswith('.textGen.mps'):
             with open(os.path.join(models_dir, fname)) as f:

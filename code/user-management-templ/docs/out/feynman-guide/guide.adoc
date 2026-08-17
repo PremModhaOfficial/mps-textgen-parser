@@ -1,0 +1,36 @@
+= MotaDSLUM: Building a NATS Messaging Bridge with a DSL
+Prem Modha
+v1.0, 2026-03-19
+:doctype: book
+:toc: left
+:toclevels: 3
+:toc-title: Contents
+:sectnums:
+:sectnumlevels: 3
+:chapter-label:
+:source-highlighter: rouge
+:rouge-style: github
+:icons: font
+:imagesdir: images
+:attribute-missing: warn
+:tip-caption: TIP
+:note-caption: NOTE
+:important-caption: IMPORTANT
+:caution-caption: CAUTION
+:warning-caption: WARNING
+
+// Target: ~14,400 words, 15-20 pages, 3-4 hour read
+
+include::sections/01-the-problem.adoc[leveloffset=+1]
+
+include::sections/02-the-big-picture.adoc[leveloffset=+1]
+
+include::sections/03-the-dsl.adoc[leveloffset=+1]
+
+include::sections/04-the-pipeline.adoc[leveloffset=+1]
+
+include::sections/05-the-developer-flow.adoc[leveloffset=+1]
+
+include::sections/06-the-user-flow.adoc[leveloffset=+1]
+
+include::sections/07-lessons-and-red-flags.adoc[leveloffset=+1]

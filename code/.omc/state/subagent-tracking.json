@@ -1,0 +1,134 @@
+{
+  "agents": [
+    {
+      "agent_id": "a93ba511cd0e660dd",
+      "agent_type": "Explore",
+      "started_at": "2026-03-10T07:14:41.679Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-03-10T07:16:09.991Z",
+      "duration_ms": 88312
+    },
+    {
+      "agent_id": "ae4993639c1896b36",
+      "agent_type": "Explore",
+      "started_at": "2026-03-10T07:14:45.826Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-03-10T07:15:09.632Z",
+      "duration_ms": 23806
+    },
+    {
+      "agent_id": "a84aabcc6a773f9f8",
+      "agent_type": "Explore",
+      "started_at": "2026-03-10T07:16:48.655Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-03-10T07:17:09.758Z",
+      "duration_ms": 21103
+    },
+    {
+      "agent_id": "ab253f8a6d0d6d121",
+      "agent_type": "Plan",
+      "started_at": "2026-03-10T07:17:51.824Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-03-10T07:19:49.838Z",
+      "duration_ms": 118014
+    },
+    {
+      "agent_id": "a63b181a5bb545466",
+      "agent_type": "Explore",
+      "started_at": "2026-03-10T07:50:01.749Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-03-10T07:51:06.692Z",
+      "duration_ms": 64943
+    },
+    {
+      "agent_id": "ada62ae707534a1db",
+      "agent_type": "Explore",
+      "started_at": "2026-03-10T07:50:01.548Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-03-10T07:50:57.243Z",
+      "duration_ms": 55695
+    },
+    {
+      "agent_id": "a9a387c762a0a5b6d",
+      "agent_type": "oh-my-claudecode:document-specialist",
+      "started_at": "2026-03-10T08:10:26.161Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-03-10T08:15:00.140Z",
+      "duration_ms": 273979
+    },
+    {
+      "agent_id": "adbb96f37e888e25e",
+      "agent_type": "Explore",
+      "started_at": "2026-03-10T13:43:56.617Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-03-10T13:46:04.258Z",
+      "duration_ms": 127641
+    },
+    {
+      "agent_id": "ae65c6beb0b98f5c8",
+      "agent_type": "Explore",
+      "started_at": "2026-03-11T07:54:37.629Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-03-11T07:55:50.975Z",
+      "duration_ms": 73346
+    },
+    {
+      "agent_id": "ac709b6bdd7f27b81",
+      "agent_type": "oh-my-claudecode:document-specialist",
+      "started_at": "2026-03-11T07:56:00.354Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-03-11T10:15:53.748Z",
+      "duration_ms": 8393394
+    },
+    {
+      "agent_id": "a71b3ff844bd3b480",
+      "agent_type": "oh-my-claudecode:document-specialist",
+      "started_at": "2026-03-11T07:56:05.835Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-03-11T10:15:55.530Z",
+      "duration_ms": 8389695
+    },
+    {
+      "agent_id": "a70e480489d7999a3",
+      "agent_type": "oh-my-claudecode:document-specialist",
+      "started_at": "2026-03-11T07:56:11.372Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-03-11T10:15:31.875Z",
+      "duration_ms": 8360503
+    },
+    {
+      "agent_id": "ab065a7023eb2b533",
+      "agent_type": "Plan",
+      "started_at": "2026-03-11T10:16:36.798Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-03-11T10:28:56.840Z",
+      "duration_ms": 740042
+    },
+    {
+      "agent_id": "a31ecb7f7f98b92f4",
+      "agent_type": "Explore",
+      "started_at": "2026-03-11T10:48:49.161Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-03-11T10:49:45.749Z",
+      "duration_ms": 56588
+    }
+  ],
+  "total_spawned": 19,
+  "total_completed": 14,
+  "total_failed": 0,
+  "last_updated": "2026-03-12T06:46:11.577Z"
+}

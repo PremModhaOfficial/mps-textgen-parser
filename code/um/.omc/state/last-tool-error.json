@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd /home/prem-modha/projects/dsl/src/code/um-gen && go mod tidy 2>&1 && go build -o um-gen . 2>&1\",\"description\":\"Tidy and build um-gen\"}",
+  "error": "Exit code 1\n# um\n./role.go:12:2: \"dev.azure.com/Motadata/NextGen/motadata-go-sdk/core/types\" imported and not used",
+  "timestamp": "2026-03-11T05:24:53.940Z",
+  "retry_count": 1
+}

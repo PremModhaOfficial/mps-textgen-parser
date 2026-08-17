@@ -1,0 +1,289 @@
+= The DSL
+
+== Why Not Just Write Go?
+
+Here is the wrong approach first.
+
+You need a User entity handler.
+You write it in Go: 595 lines covering struct definition, five event types, a handler struct, a constructor, and five Handle methods.
+Each Handle method follows eight steps.
+You need it again for Roles: 481 lines, same eight steps, different type names.
+For Permissions: 307 lines.
+
+Three files. 1,383 lines. One developer. Every line typed by hand.
+
+The structural problem is not the typing — it is the mental model that must be held simultaneously: "in HandleCreate, step 3 is pre-hooks sorted by priority, step 4 is validation, step 5 is span attributes."
+Miss step 3 and pre-hooks silently do not fire.
+Get the order wrong and the validator runs before hooks can abort, which means aborted requests still reach the DAL.
+
+The wrong approach has a name: _maintaining consistency through discipline_.
+It fails as the codebase grows because humans make mistakes under repetition.
+
+The right approach is to encode the recipe once, in a form a machine can execute reliably.
+
+That form is a DSL.
+
+=== Three Pillars of the DSL Approach
+
+*Consistency.* Every handler follows the exact same eight-step structure because they are all produced by the same template. You cannot accidentally skip step 3 in roles.go but not user.go — the template either generates it everywhere or nowhere.
+
+*Single source of truth.* The entity name `User` appears in the Go struct, the event types (`UserCreatedEvent`, `UserGetRequest`), the NATS subjects (`motadata.user.create`), the SQL table name (`iam.user`), and the span attributes (`user.username`). In hand-written code, these are four separate places to update. In the DSL, they derive from one declaration.
+
+*Generation velocity.* Adding a fourth entity (say, `Tenants`) requires writing ~15 lines of DSL. The generator produces the handler file. No hand-writing. No missed steps.
+
+[NOTE]
+====
+*Trade-offs honestly stated:* The DSL approach costs something real. You must learn MPS — a non-trivial investment with a steep initial curve. You must maintain the TextGen templates, which are the recipe book; a bug in the template affects all generated files simultaneously. And debugging generated code requires tracing backward from the output to the template node that produced it, without line numbers or breakpoints to help you.
+
+These are real costs. The system is worth it when the entity count is growing and consistency matters more than flexibility. It is not worth it for a one-off handler.
+====
+
+== MPS for Go Developers
+
+MPS is a projectional editor, not a text editor.
+This is the most important thing to understand before anything else.
+
+In a text editor, you write characters and the parser turns them into a syntax tree.
+In MPS, you directly edit the syntax tree — the tree is the document.
+There are no characters in between.
+
+The analogy: a spreadsheet versus a word processor.
+In a word processor, you type "=SUM(A1:A10)" and the parser interprets it.
+In a spreadsheet, you click a cell, click a function button, and the spreadsheet builds the formula structure for you — you never type raw text.
+MPS is the spreadsheet.
+
+This has a profound consequence: there is no copy-paste from an external text editor into MPS's TextGen buffers.
+You cannot write a Go handler in your normal editor and paste it into a TextGen template.
+You build the template character by character through MPS's completion menus.
+This is the walled garden — the full story is in <<the-pipeline>>.
+
+=== The Entity Concept
+
+An Entity in the DSL represents a domain object — not a database table, not a Go struct, but a business concept with operations and behavior attached.
+
+[source]
+----
+Entity: User
+  fields:
+    id        uuid       primaryKey, auto
+    username  string     required
+    email     email      required     (implies UNIQUE in SQL)
+    password  password   hidden       (excluded from JSON responses)
+    created_at time      auto
+    updated_at time      auto
+  operations: create, get, update, delete, list
+  hooks on create:
+    preCreateD  (pre-sync, priority 1)
+    preCreateM  (pre-async, priority 2)
+    postCreateNotifyAdmin (post-async, priority 1)
+----
+
+From this declaration, TextGen produces:
+
+[source,go]
+----
+// User struct (from field declarations)
+type User struct {
+    Id        string `json:"id" db:"id"`
+    UserName  string `json:"user_name" db:"user_name"`
+    UserMail  string `json:"user_mail" db:"user_mail"`
+    // Password has no json tag — the "hidden" annotation removes it
+    Password  string `db:"password"`
+    CreatedAt string `json:"created_at" db:"created_at"`
+    UpdatedAt string `json:"updated_at" db:"updated_at"`
+}
+
+// Event types (one per operation)
+type UserCreatedEvent struct { ... }
+type UserGetRequest   struct { ... }
+type UserUpdatedEvent struct { ... }
+type UserDeletedEvent struct { ... }
+type UserListRequest  struct { ... }
+
+// Handler struct
+type UserHandler struct {
+    natsConn  core.Connection
+    publisher core.Publisher
+    tracer    tracer.Tracer
+    logger    logger.Logger
+    // workerpool included only if any hook is async
+    wp        *workerpool.WorkerPool
+}
+
+// Five Handle methods follow...
+----
+
+The DSL's field types carry domain semantics that plain Go types do not:
+
+[cols="1,1,2", options="header"]
+|===
+| DSL Type | Go/SQL equivalent | What it implies
+
+| `uuid` | `string` / `UUID` | Auto-generated via `gen_random_uuid()`, primary key candidate
+| `email` | `string` / `VARCHAR(255)` | UNIQUE constraint in SQL, validation hook target
+| `password` | `string` | `hidden` annotation: excluded from JSON, policy checking target
+| `time` | `string` / `TIMESTAMPTZ` | `auto` means `DEFAULT NOW()` in SQL
+| `json` | `string` / `JSONB` | PostgreSQL JSONB storage
+| `entityRef` | `string` / `UUID REFERENCES` | Foreign key; DAL handles the join
+|===
+
+This is the evolution from v2-UMAN's SQL-primitive types (`int64`, `string`, `float`) to domain types.
+In v2, `email` was just `string` — the developer was responsible for adding the UNIQUE constraint and writing validation separately.
+In v3, `email` _is_ the constraint.
+
+=== The Relation Concept
+
+A Relation connects two entities with a named set of operations: assign, remove, and list.
+
+[source]
+----
+Relation: UserRoles
+  from: User
+  to:   Roles
+  operations: assign, remove, list
+  extraFields:
+    assigned_at  time  auto
+----
+
+From this, TextGen produces:
+
+* Three event types: `UserRolesAssignedEvent`, `UserRolesRemovedEvent`, `UserRolesListRequest`
+* Three handler methods inside `user.go`: HandleAssign, HandleRemove, HandleList (for the relation)
+* A junction table in SQL: `iam.user_roles` with composite primary key and cascade deletes
+
+Relations are generated into the _same file_ as their owning entity (`UserRoles` → inside `user.go`, `RolesPermissions` → inside `roles.go`).
+This is not accidental — it is a consequence of MPS's one-concept-one-file constraint.
+See <<the-pipeline>> for the full story.
+
+=== The Hook Concept
+
+A Hook is a named extension point attached to a specific operation.
+The 2×2 matrix of hook variants:
+
+[cols="1,2,2", options="header"]
+|===
+| | Pre-operation | Post-operation
+
+| *Sync* (blocks, can abort)
+| `func (s *Handler) hookName(ctx, span, event) error`
+| `func (s *Handler) hookName(ctx, span, event, data []byte) []byte`
+
+| *Async* (fire-and-forget)
+| `func (s *Handler) hookName(ctx, span, event)`
+| `func (s *Handler) hookName(ctx, span, event, data []byte)`
+|===
+
+The four signatures exist because there are four distinct use cases:
+
+* *Pre-sync:* Validation and authorization. Returns an error to abort the operation before it reaches the DAL.
+* *Pre-async:* Audit logging, notifications. Fires without blocking — the operation continues whether or not the async work completes.
+* *Post-sync:* Data transformation and PII filtering. Receives the DAL response as `[]byte`, returns the modified response.
+* *Post-async:* Cache invalidation, admin alerts. Fires after the DAL response without blocking the reply to the caller.
+
+[NOTE]
+====
+*Design rationale:* The four signatures emerged from customer extensibility requirements.
+Customers need async audit trails (pre-async) _and_ sync validation (pre-sync) on the same operation.
+A single `hook(ctx, event) ([]byte, error)` signature cannot express both — you cannot make a function both blocking-returnable and fire-and-forget simultaneously.
+The 2×2 separation is intentional: each axis (pre/post, sync/async) is an independent orthogonal choice.
+====
+
+Hook priority controls execution order within a phase.
+Lower priority number runs first within a phase:
+
+[source]
+----
+hooks on get:
+  filterPII        post-sync   priority 3
+  cacheResult      post-sync   priority 2
+  enrichData       post-sync   priority 1
+----
+
+Hooks execute in order: `enrichData` (1) → `cacheResult` (2) → `filterPII` (3).
+
+[WARNING]
+====
+*Critical ordering rule:* Always place sync validator hooks at a _lower priority number_ (runs first) than async hooks on the same operation.
+Async hooks are fire-and-forget — if a sync validator fires _after_ an async hook, the async hook has already started even if the sync validator will eventually abort the operation.
+The async hook keeps running. It cannot be cancelled.
+====
+
+=== TextGen: The Recipe Book
+
+TextGen is the MPS mechanism for describing code generation templates.
+Think of it as a smart template engine with type checking.
+
+A TextGen component declares: "for every instance of concept Entity in the sandbox, generate one `.go` file at path `/src/{entity.name.toLowerCase()}.go` containing the following content."
+
+The "following content" is expressed as a sequence of `append` statements:
+
+[source]
+----
+text gen component for concept Entity {
+  file path: "/src/"
+  extension: "go"
+  file name: node.name.toLowerCase()
+
+  body:
+    append {package main\n} ;
+    append {\nimport (\n} ;
+    append {    "context"\n} ;
+    // ... conditional imports based on entity properties ...
+    foreach operation in node.operations {
+      append {\nfunc (s *} ;
+      append ${node.name} ;
+      append {Handler) Handle} ;
+      append ${operation.name.capitalize()} ;
+      append {(msg micro.Request) {\n} ;
+      // ... eight-step handler body ...
+    }
+}
+----
+
+Each `append {...}` statement was typed character-by-character in MPS's projectional editor.
+The Entity TextGen template is approximately 300 `append` statements producing ~400 lines of Go per entity.
+
+The template supports conditional logic:
+
+[source]
+----
+// Only import workerpool if any hook is async
+append ${node.needWorkerPool() ? "\"...workerpool\"" : ""} \n ;
+
+// Only validate non-auto, non-hidden, non-nullable fields
+foreach field in node.fields {
+  if (!(field.hasAnnotation("primaryKey")) && !(field.hasAnnotation("auto"))
+      && !(field.hasAnnotation("hidden")) && !(field.hasAnnotation("nullable"))) {
+    append {|| event.} ;
+    append ${field.name.capitalize()} ;
+    append { == ""} ;
+  }
+}
+----
+
+This is why `password` fields are excluded from validation (they are `hidden`) and `id` fields are excluded (they are `primaryKey` and `auto`).
+The template knows which fields to skip because the DSL field annotations carry that information.
+
+== From DSL Declaration to Running Code
+
+The full chain for a single entity:
+
+. Developer defines `User` in MPS with fields, operations, and hooks.
+. TextGen runs, producing `user.go` (595 lines) and `sqlPrem_init_sql.sql` (partial).
+. `sync.sh` copies `user.go` to `src/`.
+. `merge_hooks.py` extracts hook stubs from `user.go` into `userDefinedHooks.go`.
+. Developer implements business logic in `userDefinedHooks.go`.
+. `sync.sh` rebuilds the Docker container.
+. `demo.sh` verifies the handler works end-to-end.
+
+Adding a field to `User` in MPS restarts at step 2.
+`userDefinedHooks.go` is preserved at step 4 — the developer's implementations are not overwritten.
+
+[WARNING]
+====
+*Watch for:*
+
+* Typos in DSL field names propagate faithfully to generated Go struct fields and NATS subject strings. `motadata.usr.create` (missing 'e') will be silently generated if the entity is named `Usr`.
+* DSL constraints are not automatically inferred. If a field should be unique, it must be declared as `email` type (which implies unique) or given an explicit unique annotation. The generator trusts the declaration.
+* The `Holder Concept Pattern` — an artifact of incomplete MPS editor styling knowledge — adds unnecessary nesting in some entity definitions. If you see a `HooksHolder` wrapper concept between `Entity` and `Hook`, it is a workaround, not a feature. Direct `0..n` children with visibility queries would be cleaner.
+====

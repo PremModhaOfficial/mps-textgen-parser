@@ -1,0 +1,37 @@
+## Ralph Production Readiness Audit - Progress
+
+### Iteration 1 (2026-03-16)
+
+#### US-001: workerpool init (FIXED)
+- Added `workerpool.MustInit()` after logger init in main.go:81
+- Added `defer workerpool.Shutdown()` at main.go:82
+- Added workerpool import to main.go
+- Without this, ALL async hooks silently failed (AsyncWithCtx returned ErrWorkerPoolNotInitialized, discarded by `_ =`)
+
+#### US-002: Password exposed in JSON (FIXED)
+- Changed User.Password tag from `json:"password"` to `json:"-"` in user.go:20
+- This prevents password leaking in any JSON response (create, get, list)
+
+#### US-003: context.Background() in adapter (FIXED)
+- Changed microRequestAdapter.Context() to inject headers into context via core.InjectContext()
+- This fixes OTEL trace propagation — handler spans now inherit trace/span IDs from incoming headers
+
+#### US-004: Hardcoded log level (FIXED)
+- Log level now reads LOG_LEVEL env var (fallback: "info")
+- Environment now reads APP_ENV env var (fallback: "production")
+- Added LOG_LEVEL=debug and APP_ENV=development to docker-compose.yml for dev
+- Removed hardcoded "development" environment string
+
+#### US-005: UserRoles missing OTEL spans (FIXED)
+- Added tracer.Start() child spans to all 6 relation hook stubs
+- Span naming: hook.{phase}.UserRoles.{operation}.{hookName}
+- Now consistent with Entity hook stub pattern
+
+#### US-006: Demo log viewing (IN PROGRESS)
+- Delegated to executor agent — adding live docker log tailing to demo-interactive.sh
+
+### Key Learnings
+- workerpool is a global singleton requiring explicit Init() before use
+- `_ = workerpool.AsyncWithCtx(...)` silently swallows init errors — dangerous pattern
+- otel.InitFromEnv() must come BEFORE logger.MustInit() (otel replaces global logger)
+- sync.sh from MPS overwrites main.go — these fixes need TextGen template updates too

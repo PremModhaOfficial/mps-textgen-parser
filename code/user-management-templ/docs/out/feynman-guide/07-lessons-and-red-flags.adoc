@@ -1,0 +1,333 @@
+= Lessons and Red Flags
+
+Every system reveals failure modes after it is built.
+This section documents the ones this system revealed — as specific incidents with forensics and named signals.
+
+Each follows the same four-part structure:
+
+. *Incident* — what went wrong, exactly
+. *Forensics* — how the root cause was found
+. *Principle* — the generalizable rule
+. *Signal* — how to recognize the pattern before it breaks
+
+== Lesson 1: The Single-File Trap
+
+=== Incident
+
+image::images/sandbox-overview.png[MPS Logical View: All 5 root concepts in the sandbox]
+
+UMAN generated working Go code.
+The code compiled, the tests passed (such as they were), and the Prisma-style schema definition felt natural.
+But all entities and their handlers were in a single generated file.
+
+When a fourth entity was added, the single file grew past 1,000 lines.
+When a template bug was found, fixing it required mentally tracking which section of the 1,000-line file corresponded to which entity.
+
+The project was abandoned — not because generation failed, but because the output structure was unmaintainable.
+
+=== Forensics
+
+image::images/entity-concept-definition.png[MPS Structure: Entity concept definition showing properties, children, and references]
+
+The root cause was the MPS one-concept-one-file constraint, but the trigger was choosing a Prisma-style single-model definition.
+Prisma works because it generates a single schema file and all code is human-readable and separate.
+MPS TextGen puts all output from a single root concept into one file — the organizational discipline of Prisma (one schema, many generated files) does not translate.
+
+The same mistake appeared in `pcrd`: entity/relation declarations, Go Gin server, SQL schema, Docker setup — all generated and working, all in one file.
+Two working systems, both abandoned for the same structural reason.
+
+=== Principle
+
+image::images/structure-tree-all-concepts.png[MPS Structure: All 19 concepts in the UserManagement language]
+
+*The generated output structure mirrors the DSL model structure.*
+
+If the DSL model puts everything in one root concept, the generated output is one file.
+To get N files, N root concepts are required — one per generated output.
+
+This is not a limitation to work around.
+It is the MPS architecture.
+Design the DSL model to produce the output structure you want, not the structure that feels natural to declare.
+
+=== Signal
+
+The trap is active when:
+
+* The generated file grows proportionally to entity count
+* Searching within a generated file for "the Roles section" becomes necessary
+* Adding a new entity requires scrolling to the right place in the generated output
+
+The fix: split the DSL model into separate root concepts, one per desired output file.
+
+---
+
+== Lesson 2: The Hook Name Collision
+
+image::images/entity-user-definition-2.png[MPS Editor: User Entity hooks — pre/post hooks with priority and async flags]
+
+=== Incident
+
+image::images/permissions-entity-hooks.png[MPS Editor: Permissions entity with pre/post hooks]
+
+`merge_hooks.py` keyed hook stubs by function name.
+When `UserRoles` and `RolesPermissions` both had a hook named `preAssignHook`, the second hook's stub overwrote the first in `userDefinedHooks.go`.
+
+The UserRoles implementation was silently replaced with the RolesPermissions stub.
+The UserRoles assign operation then did nothing — the hook ran but used the empty stub.
+
+=== Forensics
+
+The merge script compared function names: `preAssignHook == preAssignHook`.
+Both hooks had the same name.
+The merge logic found a "match" and skipped the second stub, which meant the first entity's implementation was treated as the correct implementation for both.
+
+The receiver type was not part of the identity key: `*UserHandler.preAssignHook` and `*RolesHandler.preAssignHook` are different functions, but the script saw them as `preAssignHook` and `preAssignHook` — identical.
+
+=== Principle
+
+*Identity requires context.*
+
+A function name is not a unique identifier in a codebase with multiple receiver types.
+`preAssignHook` on `*UserHandler` and `preAssignHook` on `*RolesHandler` are different functions that happen to share a name.
+The full identity is `ReceiverType.FunctionName`.
+
+The fix: key stubs by `*ReceiverType.funcName` (e.g., `*UserHandler.preAssignHook` vs. `*RolesHandler.preAssignHook`).
+
+=== Signal
+
+The trap is active when:
+
+* Merge or matching logic uses function names without qualifying the containing type or scope
+* Two different entities have hooks with the same name and different implementations
+* Silently correct-looking output (no error, just wrong behavior) appears after a merge
+
+---
+
+== Lesson 3: Presence Is Not Equivalence
+
+=== Incident
+
+A hook was changed from post-sync to post-async.
+The return type changed from `[]byte` to nothing.
+The name stayed the same.
+
+`merge_hooks.py` found the hook in `userDefinedHooks.go`, saw the name matched, and kept the existing implementation — with the old return type.
+
+The Go compiler reported a type error.
+The error message pointed to the hook implementation in `userDefinedHooks.go`, not to the merge script that caused the problem.
+
+=== Forensics
+
+The merge script checked: "does this function name already exist in `userDefinedHooks.go`?"
+It did.
+The script concluded: "this is an existing hook, preserve it."
+
+But "exists" is not the same as "correct shape."
+The existing function had the wrong signature for the new hook type.
+The merge script had no concept of signature validation — it only checked for name presence.
+
+=== Principle
+
+*Presence is not equivalence.*
+
+Finding a function by name does not mean the function is the right function.
+A hook with the correct name and the wrong signature is not a match — it is a collision waiting to break the build.
+
+The fix: compare signatures on every merge, not just names.
+When a signature mismatch is detected, print the old implementation as a warning and replace the stub.
+
+=== Signal
+
+The trap is active when:
+
+* Existence checks are the only form of identity validation
+* A script that merges or updates code checks "does it exist?" but not "does it look right?"
+* Build errors appear in preserved user code, not in generated code
+
+---
+
+== Lesson 4: Silent Generation Failures
+
+=== Incident
+
+A generated handler contained:
+
+[source,go]
+----
+if event.Permissions. == "" {
+----
+
+A trailing dot — `event.Permissions.` — with nothing after it.
+The Go compiler reported a syntax error.
+The error pointed to the generated file.
+
+The generated file is not supposed to be edited.
+When a generated file has a bug, the fix must be in the generator — not in the file itself.
+
+=== Forensics
+
+TextGen produces this line from:
+
+[source]
+----
+append {|| event.} ;
+append ${field.name.capitalize()} ;
+append { == ""} ;
+----
+
+`field.name.capitalize()` returned an empty string.
+The field in MPS had been created in the editor but not named.
+The MPS editor allows a field to exist with an empty name — there is no constraint preventing it.
+
+TextGen generated `event.` + `""` + ` == ""` = `event. == ""`.
+
+=== Principle
+
+*Silent generation failures produce syntactically invalid output.*
+
+When TextGen expands a template with an empty or missing value, it produces whatever character combination results from the concatenation.
+There is no TextGen equivalent of a null check or a "required field" error during generation.
+
+Two protections are available:
+
+. Add MPS constraints to the concept (e.g., "name must be non-empty") — the editor will show an error before generation runs.
+. Add `System.out.println(field.name)` inside the TextGen template to log intermediate values to the MPS Messages console during generation.
+
+=== Signal
+
+The trap is active when:
+
+* A generated Go file has a syntax error that looks like a template artifact (trailing dots, empty identifiers, doubled strings)
+* The error points to a line that no human wrote
+* The instinct is to edit the generated file to fix it
+
+The fix is always in the generator — either the DSL model has a missing value, or the TextGen template is not handling empty values defensively.
+
+---
+
+== Lesson 5: Don't Fight the Walled Garden — Build a Bridge
+
+=== Incident
+
+Writing the 300-`append`-statement Entity TextGen template character by character in MPS's projectional editor took weeks.
+Every string interpolation required navigating completion menus.
+Copy-paste from an external editor was impossible.
+AI assistance was unavailable.
+When a bug appeared on line 47 of the generated output, there was no way to set a breakpoint or trace which `append` statement produced that line.
+
+The first escape attempt — switching to the DSL Foundry TextGen plugin — failed for lack of documentation and incomprehensible groupings.
+
+=== Forensics
+
+The root cause was accepting the walled garden as a fixed constraint.
+"This must be typed in MPS" became the unquestioned premise.
+
+The correct question was: "what is MPS actually doing when TextGen runs?"
+The answer: MPS reads `.mps` XML files and interprets the TextGen node structure they contain.
+The `.mps` format is the real input — the projectional editor is just one way to produce it.
+
+=== Principle
+
+*When a tool's editing UX is the blocker, build a bridge to it rather than fighting within it.*
+
+The walled garden walls are high on the inside.
+From the outside, the `.mps` file format is just XML.
+A Python script can write valid XML.
+The bridge (`parse_textgen.py`) took one day to build and eliminated weeks of manual authoring for every future template.
+
+=== Signal
+
+The trap is active when:
+
+* Multiple days have been spent manually authoring something that could be expressed in a text file
+* The tool does not allow import from external formats
+* Plugin switching has been tried and failed
+
+The pattern name: *reverse-engineer the import format*.
+Find out what the tool actually reads, not what it displays.
+Build a converter that produces that format from something editable externally.
+
+---
+
+== Lesson 6: External Scripts Are First-Class Tooling
+
+image::images/entity-user-definition-1.png[MPS Editor: User Entity definition with fields, types, and annotations]
+
+=== Incident
+
+`userDefinedHooks.go` needed to exist as a separate file from generated entity handlers.
+The MPS one-concept-one-file constraint said: to generate a separate file, create a separate root concept.
+Creating a root concept just for hook stubs would add a trivial one-liner to the sandbox — cluttering it with noise.
+
+The same problem applied to the SQL schema file: the `SqlSchem` root concept needs explicit `entityrefs` to include each entity.
+Forgetting to add a reference means the table is not generated — silently.
+
+=== Forensics
+
+Both problems share a structure: MPS's generation model produces files but cannot _process_ or _coordinate_ the output of multiple generation passes.
+It cannot extract hooks from all entity files and combine them into one file.
+It cannot verify that all entities have been referenced in SqlSchem.
+
+External scripts have no such limitation.
+
+=== Principle
+
+*External scripts are first-class tooling, not workarounds.*
+
+`merge_hooks.py` is not a hack around MPS's limitations.
+It is the right tool for the job MPS cannot do: extract, merge, and validate across multiple generated files.
+`sync.sh` is not a workaround for the SDK registry gap — it is the right tool for coordinating the full pipeline.
+
+The pattern: generate inside MPS → transform and coordinate outside MPS.
+
+=== Signal
+
+The trap is active when:
+
+* A new MPS root concept is being created just to generate a file that combines or processes output from other concepts
+* A build failure happens because two separately generated files are inconsistent
+* Post-processing logic is being added inside a TextGen template
+
+---
+
+== Principles Reference Card
+
+[cols="1,2,2", options="header"]
+|===
+| Name | Principle | Watch For
+
+| The Single-File Trap
+| Generated output structure mirrors DSL model structure
+| Generated file growing with entity count; searching within generated output
+
+| Identity Requires Context
+| ReceiverType.FunctionName is the minimum unique identity for a hook
+| Name-only matching in merge scripts; silent behavior changes after merge
+
+| Presence Is Not Equivalence
+| Name match without signature match is a collision, not a hit
+| Existence-only checks; build errors in preserved user code
+
+| Silent Generation Failures
+| TextGen produces whatever concatenation results from template + values
+| Trailing dots, empty identifiers, doubled strings in generated code
+
+| Bridge the Walled Garden
+| Reverse-engineer the tool's import format; build a converter
+| Weeks of manual authoring; failed plugin switches; no AI assistance
+
+| External Scripts Are First-Class
+| Generate inside MPS, coordinate outside MPS
+| New root concepts for post-processing; inconsistency between generated files
+|===
+
+[WARNING]
+====
+*Final watch-for:*
+
+Scoping in MPS remains partially understood.
+The current DSL sidesteps complex scoping by using entity references by name rather than variable binding.
+If future DSL features require computed fields, conditional logic in templates, or cross-entity references at generation time, scoping will need to be properly mastered.
+The `ScopeProvider.getScope()` mechanism exists but was not needed for this project — and "did not need it" is not the same as "understood it."
+Do not assume the scoping knowledge from learning projects (`gtog`, `calculator`) is sufficient for production use without verification.
+====

@@ -1,0 +1,6 @@
+// Lessons & War Stories
+// Add new lessons with: /feynman-docs lesson "<title>"
+// Format: incident → forensics → named principle → recognition signal
+// Status: captured | woven | standalone
+
+// ─── Lessons will be appended below this line ───
